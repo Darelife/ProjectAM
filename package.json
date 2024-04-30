@@ -2,10 +2,13 @@
   "dependencies": {
     "express": "^4.19.2",
     "http": "^0.0.1-security",
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "netlify-cli": "^17.17.1",
+    "netlify-lambda": "^2.0.16"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build": "netlify deploy --prod"
   }
 }

@@ -1,4 +1,5 @@
 const express = require("express");
+const router = express.Router();
 
 const app = express();
 
@@ -23,5 +24,7 @@ app.use((error, req, res, next) => {
     },
   });
 });
+
+app.use("/.netlify/functions/app", router);
 
 module.exports = app;
