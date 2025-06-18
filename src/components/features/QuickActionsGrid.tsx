@@ -26,14 +26,14 @@ const container = {
   show: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
+      duration: 0.3,
     },
   },
 };
 
 const item = {
   hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
 };
 
 export function QuickActionsGrid() {
@@ -42,17 +42,22 @@ export function QuickActionsGrid() {
       variants={container}
       initial="hidden"
       animate="show"
-      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4"
     >
       {actions.map((action) => (
         <MotionA
           key={action.label}
           href={action.href}
           variants={item}
-          className="card-hover p-6 rounded-xl bg-card border border-border/40 flex items-center space-x-4"
+          className="group relative overflow-hidden card-hover p-4 rounded-xl bg-card border border-border/40 flex items-center space-x-3 smooth-hover hover:bg-card/80 min-h-[80px]"
         >
-          <action.icon className="w-6 h-6 text-primary" />
-          <span className="text-lg font-medium">{action.label}</span>
+          <div className="relative z-10 flex items-center space-x-3 w-full">
+            <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors flex-shrink-0">
+              <action.icon className="w-5 h-5 text-primary" />
+            </div>
+            <span className="font-medium text-sm sm:text-base leading-tight">{action.label}</span>
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
         </MotionA>
       ))}
     </MotionDiv>
