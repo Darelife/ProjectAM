@@ -2,39 +2,87 @@
 
 import { MotionDiv } from "@/components/ui/motion";
 import { Calendar, Clock, Coffee, LineChart, Target } from "lucide-react";
-
-const summaries = [
-  {
-    icon: Calendar,
-    label: "Tasks Due Today",
-    value: "3 tasks",
-    color: "text-green-500",
-    gradient: "from-green-500/20 to-green-500/5",
-  },
-  {
-    icon: Clock,
-    label: "Focus Time",
-    value: "2h 30m",
-    color: "text-blue-500",
-    gradient: "from-blue-500/20 to-blue-500/5",
-  },
-  {
-    icon: Target,
-    label: "Goals Progress",
-    value: "75%",
-    color: "text-purple-500",
-    gradient: "from-purple-500/20 to-purple-500/5",
-  },
-  {
-    icon: Coffee,
-    label: "Break Time",
-    value: "45m",
-    color: "text-orange-500",
-    gradient: "from-orange-500/20 to-orange-500/5",
-  },
-];
+import { useState, useEffect } from "react";
+import { TaskService } from "@/services/TaskService";
+import { HabitService } from "@/services/HabitService";
+import { Task } from "@/types/Task";
+import { Habit } from "@/types/Habit";
 
 export function TodaySummary() {
+  const [todayTasks, setTodayTasks] = useState<Task[]>([]);
+  const [todayHabits, setTodayHabits] = useState<Habit[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadTodayData();
+  }, []);
+
+  const loadTodayData = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const [tasks, habits] = await Promise.all([
+        TaskService.getByDate(today),
+        HabitService.getHabitsForDate(today)
+      ]);
+      setTodayTasks(tasks);
+      setTodayHabits(habits);
+    } catch (error) {
+      console.error("Failed to load today's data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const completedTasks = todayTasks.filter(task => task.completed).length;
+  const totalTasks = todayTasks.length;
+  const completedHabits = todayHabits.length;
+  const totalHabits = todayHabits.length;
+
+  // Calculate focus time from completed pomodoro tasks
+  const focusTime = todayTasks.reduce((total, task) => {
+    return total + (task.pomodoroCount || 0) * 25; // 25 minutes per pomodoro
+  }, 0);
+
+  const formatTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  };
+
+  const overallProgress = totalTasks > 0 
+    ? Math.round((completedTasks / totalTasks) * 100)
+    : 0;
+
+  const summaries = [
+    {
+      icon: Calendar,
+      label: "Tasks Due Today",
+      value: loading ? "..." : `${completedTasks}/${totalTasks} tasks`,
+      color: "text-teal-500",
+      gradient: "from-teal-500/20 to-teal-500/5",
+    },
+    {
+      icon: Clock,
+      label: "Focus Time",
+      value: loading ? "..." : formatTime(focusTime),
+      color: "text-blue-500",
+      gradient: "from-blue-500/20 to-blue-500/5",
+    },
+    {
+      icon: Target,
+      label: "Habits Completed",
+      value: loading ? "..." : `${completedHabits} habits`,
+      color: "text-green-500",
+      gradient: "from-green-500/20 to-green-500/5",
+    },
+    {
+      icon: Coffee,
+      label: "Progress",
+      value: loading ? "..." : `${overallProgress}%`,
+      color: "text-orange-500",
+      gradient: "from-orange-500/20 to-orange-500/5",
+    },
+  ];
   return (
     <MotionDiv
       initial={{ opacity: 0, y: 20 }}
@@ -70,12 +118,12 @@ export function TodaySummary() {
       <div className="mt-6 p-4 rounded-xl bg-background/50 border border-border/40">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-muted-foreground">Daily Progress</span>
-          <span className="text-sm font-medium">75%</span>
+          <span className="text-sm font-medium">{overallProgress}%</span>
         </div>
         <div className="h-2 rounded-full bg-background/80">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-primary to-teal-500"
-            style={{ width: "75%" }}
+            className="h-full rounded-full bg-gradient-to-r from-teal-500 to-blue-500 transition-all duration-300"
+            style={{ width: `${overallProgress}%` }}
           />
         </div>
       </div>

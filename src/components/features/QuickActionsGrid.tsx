@@ -18,7 +18,6 @@ const actions = [
   { icon: LineChart, label: "Graph View", href: "/graph" },
   { icon: CheckSquare, label: "Eisenhower Matrix", href: "/eisenhower" },
   { icon: BookOpen, label: "Habit Tracker", href: "/habits" },
-  { icon: Inbox, label: "Inbox", href: "/inbox" },
 ];
 
 const container = {
