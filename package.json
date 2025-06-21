@@ -3,18 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "author": "Prakhar Bhandari <prakharb2k6@gmail.com>",
-  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "electron": "NODE_ENV=development electron .",
-    "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 http://localhost:3001 && NODE_ENV=development electron .\"",
-    "build-electron": "NODE_ENV=production BUILD_TARGET=electron next build && electron-builder",
-    "dist": "NODE_ENV=production BUILD_TARGET=electron next build && electron-builder --publish=never",
-    "dist-linux": "NODE_ENV=production BUILD_TARGET=electron next build && npm run clean-sharp && electron-builder --linux",
-    "clean-sharp": "rm -rf node_modules/@img || true"
+    "lint": "next lint"
   },
   "dependencies": {
     "@types/d3": "^7.4.3",
@@ -38,7 +31,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss7-compat": "^2.2.17",
-    "@types/electron": "^1.4.38",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^20",
     "@types/react": "^18",
@@ -47,18 +39,14 @@
     "@types/react-dom": "^18",
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.0.1",
-    "concurrently": "^9.1.2",
-    "electron": "^36.5.0",
-    "electron-builder": "^26.0.12",
     "eslint": "^8",
     "eslint-config-next": "15.0.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5",
-    "wait-on": "^8.0.3"
-  },
-  "build": {
+    "typescript": "^5"
+  }
+}
     "appId": "com.projectam.app",
     "productName": "ProjectAM",
     "directories": {
@@ -86,12 +74,10 @@
       }
     ],
     "mac": {
-      "category": "public.app-category.productivity",
-      "icon": "assets/icon.icns"
+      "category": "public.app-category.productivity"
     },
     "win": {
-      "target": "nsis",
-      "icon": "assets/icon.ico"
+      "target": "nsis"
     },
     "linux": {
       "target": [
@@ -103,8 +89,7 @@
           "target": "tar.gz",
           "arch": ["x64"]
         }
-      ],
-      "icon": "assets/icon.png"
+      ]
     }
   }
 }

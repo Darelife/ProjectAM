@@ -1,80 +1,73 @@
 import { Task } from '../types/Task';
 import { DiaryEntry } from '../types/DiaryEntry';
 
-// Create a unified TaskService that checks environment and delegates appropriately
+// TaskService that uses API routes
 export const TaskService = {
   async getAll(): Promise<Task[]> {
-    if (typeof window !== 'undefined' && (window as any).electronAPI) {
-      // We're in Electron
-      return await (window as any).electronAPI.getTasks();
-    } else {
-      // We're in web/Next.js environment
-      const { TaskService: WebTaskService } = await import('./TaskService');
-      return WebTaskService.getAll();
-    }
+    const response = await fetch('/api/tasks');
+    if (!response.ok) throw new Error('Failed to fetch tasks');
+    return response.json();
   },
 
   async getById(id: string): Promise<Task | undefined> {
-    if (typeof window !== 'undefined' && (window as any).electronAPI) {
-      return await (window as any).electronAPI.getTaskById(id);
-    } else {
-      const { TaskService: WebTaskService } = await import('./TaskService');
-      return WebTaskService.getById(id);
-    }
+    const response = await fetch(`/api/tasks?id=${id}`);
+    if (!response.ok) return undefined;
+    const tasks = await response.json();
+    return Array.isArray(tasks) ? tasks[0] : tasks;
   },
 
   async create(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task> {
-    if (typeof window !== 'undefined' && (window as any).electronAPI) {
-      return await (window as any).electronAPI.createTask(task);
-    } else {
-      const { TaskService: WebTaskService } = await import('./TaskService');
-      return WebTaskService.create(task);
-    }
+    const response = await fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(task)
+    });
+    if (!response.ok) throw new Error('Failed to create task');
+    return response.json();
   },
 
   async update(id: string, updates: Partial<Task>): Promise<Task | undefined> {
-    if (typeof window !== 'undefined' && (window as any).electronAPI) {
-      return await (window as any).electronAPI.updateTask(id, updates);
-    } else {
-      const { TaskService: WebTaskService } = await import('./TaskService');
-      return WebTaskService.update(id, updates);
-    }
+    const response = await fetch(`/api/tasks`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...updates })
+    });
+    if (!response.ok) return undefined;
+    return response.json();
   },
 
   async delete(id: string): Promise<boolean> {
-    if (typeof window !== 'undefined' && (window as any).electronAPI) {
-      return await (window as any).electronAPI.deleteTask(id);
-    } else {
-      const { TaskService: WebTaskService } = await import('./TaskService');
-      return WebTaskService.delete(id);
-    }
+    const response = await fetch(`/api/tasks`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    return response.ok;
   },
 
   async getByDate(date: string): Promise<Task[]> {
-    if (typeof window !== 'undefined' && (window as any).electronAPI) {
-      return await (window as any).electronAPI.getTasksByDate(date);
-    } else {
-      const { TaskService: WebTaskService } = await import('./TaskService');
-      return WebTaskService.getByDate(date);
-    }
+    const response = await fetch(`/api/tasks?date=${date}`);
+    if (!response.ok) throw new Error('Failed to fetch tasks by date');
+    return response.json();
   },
 
   async getByQuadrant(quadrant: Task['eisenhowerQuadrant']): Promise<Task[]> {
-    if (typeof window !== 'undefined' && (window as any).electronAPI) {
-      return await (window as any).electronAPI.getTasksByQuadrant(quadrant);
-    } else {
-      const { TaskService: WebTaskService } = await import('./TaskService');
-      return WebTaskService.getByQuadrant(quadrant);
-    }
+    const response = await fetch(`/api/tasks?quadrant=${quadrant}`);
+    if (!response.ok) throw new Error('Failed to fetch tasks by quadrant');
+    return response.json();
   },
 
   async linkToNote(taskId: string, noteId: string): Promise<Task | undefined> {
-    if (typeof window !== 'undefined' && (window as any).electronAPI) {
-      return await (window as any).electronAPI.linkTaskToNote(taskId, noteId);
-    } else {
-      const { TaskService: WebTaskService } = await import('./TaskService');
-      return WebTaskService.linkToNote(taskId, noteId);
-    }
+    const response = await fetch('/api/tasks', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        id: taskId, 
+        linkedNoteIds: [noteId] // This might need to be handled differently depending on your logic
+      })
+    });
+    if (!response.ok) return undefined;
+    return response.json();
   },
 };
 
