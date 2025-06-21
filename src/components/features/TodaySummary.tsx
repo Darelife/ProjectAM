@@ -3,7 +3,7 @@
 import { MotionDiv } from "@/components/ui/motion";
 import { Calendar, Clock, Coffee, LineChart, Target } from "lucide-react";
 import { useState, useEffect } from "react";
-import { TaskService } from "@/services/TaskService";
+import { TaskService } from "@/services";
 import { HabitService } from "@/services/HabitService";
 import { Task } from "@/types/Task";
 import { Habit } from "@/types/Habit";

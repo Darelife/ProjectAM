@@ -8,15 +8,8 @@ import { MotionDiv } from "@/components/ui/motion"
 import { TaskList } from "@/components/features/TaskList"
 import { HabitTracker } from "@/components/features/HabitTracker"
 import { NotesWidget } from "@/components/features/NotesWidget"
-import { seedInitialData } from "@/lib/seedData"
-import { useEffect } from "react"
 
 export default function Home() {
-  useEffect(() => {
-    // Seed initial data on first load
-    seedInitialData();
-  }, []);
-
   const getGreeting = () => {
     const hour = new Date().getHours()
     if (hour < 12) return "Good Morning"

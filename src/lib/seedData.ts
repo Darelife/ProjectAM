@@ -1,4 +1,4 @@
-import { TaskService } from '@/services/TaskService';
+import { TaskService } from '@/services/TaskService.server';
 import { HabitService } from '@/services/HabitService';
 import { NoteService } from '@/services/NoteService';
 

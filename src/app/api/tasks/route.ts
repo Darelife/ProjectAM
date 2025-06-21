@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { TaskService } from '../../../services/TaskService';
+import { TaskService } from '../../../services/TaskService.server';
 import { TaskSchema } from '../../../types/Task';
+
+export const dynamic = 'force-static';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -28,10 +30,20 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json();
   try {
-    const parsed = TaskSchema.omit({ id: true, createdAt: true, updatedAt: true }).parse(body);
-    const task = await TaskService.create(parsed);
+    // Ensure required fields have defaults
+    const taskData = {
+      title: body.title,
+      priority: body.priority || 'medium',
+      completed: false,
+      linkedNoteIds: body.linkedNoteIds || [],
+      tags: body.tags || [],
+      ...body // This allows other optional fields to be passed through
+    };
+    
+    const task = await TaskService.create(taskData);
     return NextResponse.json(task, { status: 201 });
   } catch (e: any) {
+    console.error('Task creation error:', e);
     return NextResponse.json({ error: e.message }, { status: 400 });
   }
 }

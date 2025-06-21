@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Task } from '../../types/Task';
 import { TopBar } from '../../components/layout/TopBar';
 import { MotionDiv } from '../../components/ui/motion';
+import { TaskForm } from '../../components/features/TaskForm';
 import { 
   Calendar as CalendarIcon, 
   ChevronLeft, 
@@ -14,6 +15,7 @@ import {
   Circle,
   Filter
 } from 'lucide-react';
+import Link from 'next/link';
 
 interface CalendarDay {
   date: Date;
@@ -101,12 +103,14 @@ function TaskSidebar({
   selectedDate, 
   tasks, 
   onTaskToggle, 
-  onTaskDelete 
+  onTaskDelete,
+  onCreateTask
 }: {
   selectedDate: Date | null;
   tasks: Task[];
   onTaskToggle: (id: string) => void;
   onTaskDelete: (id: string) => void;
+  onCreateTask: () => void;
 }) {
   if (!selectedDate) {
     return (
@@ -143,7 +147,10 @@ function TaskSidebar({
             {dayTasks.length} task{dayTasks.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button className="button-primary p-2 rounded-lg">
+        <button 
+          onClick={onCreateTask}
+          className="button-primary p-2 rounded-lg"
+        >
           <Plus className="w-4 h-4" />
         </button>
       </div>
@@ -153,7 +160,10 @@ function TaskSidebar({
           <div className="text-center py-8">
             <Clock className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
             <p className="text-sm text-muted-foreground">No tasks for this day</p>
-            <button className="button-primary px-4 py-2 rounded-lg mt-3 text-sm">
+            <button 
+              onClick={onCreateTask}
+              className="button-primary px-4 py-2 rounded-lg mt-3 text-sm"
+            >
               Add Task
             </button>
           </div>
@@ -221,6 +231,8 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editing, setEditing] = useState<Task | null>(null);
 
   useEffect(() => {
     fetchTasks();
@@ -259,6 +271,42 @@ export default function CalendarPage() {
     } catch (error) {
       console.error('Failed to delete task:', error);
     }
+  };
+
+  const handleSaveTask = async (taskData: Partial<Task>) => {
+    try {
+      if (editing) {
+        // Update existing task
+        await fetch(`/api/tasks/${editing.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(taskData)
+        });
+      } else {
+        // Create new task
+        await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(taskData)
+        });
+      }
+      
+      fetchTasks();
+      setShowCreateModal(false);
+      setEditing(null);
+    } catch (error) {
+      console.error('Failed to save task:', error);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setEditing(null);
+  };
+
+  const handleCreateTask = () => {
+    setEditing(null);
+    setShowCreateModal(true);
   };
 
   const generateCalendarDays = (): CalendarDay[] => {
@@ -319,10 +367,12 @@ export default function CalendarPage() {
           className="mb-8"
         >
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <CalendarIcon className="w-8 h-8 text-teal-500" />
-              <h1 className="text-4xl font-bold gradient-text">Calendar</h1>
-            </div>
+            <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity">
+              <div className="flex items-center gap-3">
+                <CalendarIcon className="w-8 h-8 text-teal-500" />
+                <h1 className="text-4xl font-bold gradient-text">Calendar</h1>
+              </div>
+            </Link>
             
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
@@ -416,6 +466,7 @@ export default function CalendarPage() {
                 tasks={tasks}
                 onTaskToggle={handleTaskToggle}
                 onTaskDelete={handleTaskDelete}
+                onCreateTask={handleCreateTask}
               />
             </MotionDiv>
           </div>
@@ -466,6 +517,15 @@ export default function CalendarPage() {
             <div className="text-sm text-muted-foreground">Due This Week</div>
           </div>
         </MotionDiv>
+
+        {/* Task Form Modal */}
+        <TaskForm
+          task={editing}
+          isOpen={showCreateModal || editing !== null}
+          onClose={handleCloseModal}
+          onSave={handleSaveTask}
+          selectedDate={selectedDate}
+        />
       </div>
     </main>
   );

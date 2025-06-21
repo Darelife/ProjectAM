@@ -29,7 +29,7 @@ export function TopBar() {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <span className="text-xl font-bold gradient-text">
-            Project AM
+            <a href="/">Project AM</a>
           </span>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />

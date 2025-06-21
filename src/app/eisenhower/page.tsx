@@ -17,6 +17,7 @@ import {
   ArrowDownRight,
   ArrowDown
 } from 'lucide-react';
+import Link from 'next/link';
 
 interface QuadrantProps {
   title: string;
@@ -283,15 +284,17 @@ export default function EisenhowerPage() {
           className="mb-8"
         >
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <Target className="w-8 h-8 text-teal-500" />
-              <div>
-                <h1 className="text-4xl font-bold gradient-text">Eisenhower Matrix</h1>
-                <p className="text-muted-foreground mt-1">
-                  Prioritize tasks by urgency and importance
-                </p>
+            <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity">
+              <div className="flex items-center gap-3">
+                <Target className="w-8 h-8 text-teal-500" />
+                <div>
+                  <h1 className="text-4xl font-bold gradient-text">Eisenhower Matrix</h1>
+                  <p className="text-muted-foreground mt-1">
+                    Prioritize tasks by urgency and importance
+                  </p>
+                </div>
               </div>
-            </div>
+            </Link>
             
             <div className="flex items-center gap-4">
               <div className="text-sm text-muted-foreground">

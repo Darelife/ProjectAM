@@ -1,5 +1,200 @@
-"use client";import { useEffect, useState } from 'react';import { Task } from '../../types/Task';import { TopBar } from '../../components/layout/TopBar';import { MotionDiv } from '../../components/ui/motion';import {   Plus,   Search,   Calendar,   Target,   Edit3,   Trash2,   CheckCircle2,   Circle,  Tag} from 'lucide-react';interface TaskCardProps {  task: Task;  onEdit: (task: Task) => void;  onDelete: (id: string) => void;  onToggle: (id: string) => void;}function TaskCard({ task, onEdit, onDelete, onToggle }: TaskCardProps) {  const priorityColors = {    low: 'border-green-500/30 bg-green-500/5',    medium: 'border-yellow-500/30 bg-yellow-500/5',    high: 'border-red-500/30 bg-red-500/5'  };  const priorityTextColors = {    low: 'text-green-500',    medium: 'text-yellow-500',    high: 'text-red-500'  };  return (    <MotionDiv      initial={{ opacity: 0, y: 20 }}      animate={{ opacity: 1, y: 0 }}      className={`glass-enhanced p-6 rounded-xl border-l-4 ${priorityColors[task.priority]} card-hover`}    >      <div className="flex items-start justify-between">        <div className="flex items-start space-x-4 flex-1">          <button            onClick={() => onToggle(task.id)}            className="mt-1 transition-colors hover:scale-110"          >            {task.completed ? (              <CheckCircle2 className="w-5 h-5 text-green-500" />            ) : (              <Circle className="w-5 h-5 text-muted-foreground hover:text-primary" />            )}          </button>                    <div className="flex-1">            <h3 className={`text-lg font-semibold ${task.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>              {task.title}            </h3>            {task.description && (              <p className="text-muted-foreground text-sm mt-1">{task.description}</p>            )}                        <div className="flex items-center gap-4 mt-3 text-xs">              <span className={`px-2 py-1 rounded-full ${priorityTextColors[task.priority]} bg-current/10`}>                {task.priority}              </span>                            {task.eisenhowerQuadrant && (                <span className="px-2 py-1 rounded-full bg-primary/10 text-primary">                  {task.eisenhowerQuadrant}                </span>              )}                            {task.dueDate && (                <div className="flex items-center gap-1 text-muted-foreground">                  <Calendar className="w-3 h-3" />                  {new Date(task.dueDate).toLocaleDateString()}                </div>              )}                            {task.tags.length > 0 && (                <div className="flex items-center gap-1">                  <Tag className="w-3 h-3 text-muted-foreground" />                  <span className="text-muted-foreground">                    {task.tags.slice(0, 2).join(', ')}                    {task.tags.length > 2 && ` +${task.tags.length - 2}`}                  </span>                </div>              )}            </div>          </div>        </div>                <div className="flex items-center gap-2">          <button            onClick={() => onEdit(task)}            className="p-2 hover:bg-background/50 rounded-lg transition-colors"          >            <Edit3 className="w-4 h-4 text-muted-foreground hover:text-primary" />          </button>          <button            onClick={() => onDelete(task.id)}            className="p-2 hover:bg-background/50 rounded-lg transition-colors"          >            <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />          </button>        </div>      </div>    </MotionDiv>  );}export default function TasksPage() {  const [tasks, setTasks] = useState<Task[]>([]);  const [filter, setFilter] = useState<{ tag?: string; quadrant?: string; date?: string; search?: string }>({});  const [editing, setEditing] = useState<Task | null>(null);  const [showCreateModal, setShowCreateModal] = useState(false);  useEffect(() => {    fetchTasks();  }, [filter]);  const fetchTasks = async () => {    try {      let url = '/api/tasks';      const params = new URLSearchParams();      if (filter.tag) params.append('tag', filter.tag);      if (filter.quadrant) params.append('quadrant', filter.quadrant);      if (filter.date) params.append('date', filter.date);      if (filter.search) params.append('search', filter.search);            if (params.toString()) url += `?${params.toString()}`;            const res = await fetch(url);      const data = await res.json();      setTasks(data);    } catch (error) {      console.error('Failed to fetch tasks:', error);    }  };  const handleToggleComplete = async (id: string) => {    const task = tasks.find(t => t.id === id);    if (!task) return;        try {      await fetch(`/api/tasks/${id}`, {        method: 'PATCH',        headers: { 'Content-Type': 'application/json' },        body: JSON.stringify({ completed: !task.completed })      });      fetchTasks();    } catch (error) {      console.error('Failed to toggle task:', error);    }  };  const handleDelete = async (id: string) => {    try {      await fetch(`/api/tasks/${id}`, { method: 'DELETE' });      fetchTasks();    } catch (error) {      console.error('Failed to delete task:', error);    }  };  const filteredTasks = tasks.filter(task => {    if (filter.search) {      const searchLower = filter.search.toLowerCase();      return task.title.toLowerCase().includes(searchLower) ||             task.description?.toLowerCase().includes(searchLower) ||             task.tags.some(tag => tag.toLowerCase().includes(searchLower));
+"use client";
+import { useEffect, useState } from 'react';
+import { Task } from '../../types/Task';
+import { TopBar } from '../../components/layout/TopBar';
+import { MotionDiv } from '../../components/ui/motion';
+import { TaskForm } from '../../components/features/TaskForm';
+import { Plus, Search, Calendar, Target, Edit3, Trash2, CheckCircle2, Circle, Tag } from 'lucide-react';
+import Link from 'next/link';
+import { TaskService } from '@/services';
+
+interface TaskCardProps {  
+  task: Task;  
+  onEdit: (task: Task) => void;  
+  onDelete: (id: string) => void;  
+  onToggle: (id: string) => void;
+}
+
+function TaskCard({ task, onEdit, onDelete, onToggle }: TaskCardProps) {  
+  const priorityColors = {    
+    low: 'border-green-500/30 bg-green-500/5',    
+    medium: 'border-yellow-500/30 bg-yellow-500/5',    
+    high: 'border-red-500/30 bg-red-500/5'  
+  };  
+  const priorityTextColors = {    
+    low: 'text-green-500',    
+    medium: 'text-yellow-500',    
+    high: 'text-red-500'  
+  };  
+  
+  return (    
+    <MotionDiv      
+      initial={{ opacity: 0, y: 20 }}      
+      animate={{ opacity: 1, y: 0 }}      
+      className={`glass-enhanced p-6 rounded-xl border-l-4 ${priorityColors[task.priority]} card-hover`}    
+    >      
+      <div className="flex items-start justify-between">        
+        <div className="flex items-start space-x-4 flex-1">          
+          <button            
+            onClick={() => onToggle(task.id)}            
+            className="mt-1 transition-colors hover:scale-110"          
+          >            
+            {task.completed ? (              
+              <CheckCircle2 className="w-5 h-5 text-green-500" />            
+            ) : (              
+              <Circle className="w-5 h-5 text-muted-foreground hover:text-primary" />            
+            )}          
+          </button>                    
+          
+          <div className="flex-1">            
+            <h3 className={`text-lg font-semibold ${task.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>              
+              {task.title}            
+            </h3>            
+            {task.description && (
+              <p className="text-muted-foreground text-sm mt-1">
+                {task.description}
+              </p>
+            )}
+            <div className="flex items-center gap-4 mt-3 text-xs">              
+              <span className={`px-2 py-1 rounded-full ${priorityTextColors[task.priority]} bg-current/10`}>                
+                {task.priority}              
+              </span>                            
+              
+              {task.eisenhowerQuadrant && (                
+                <span className="px-2 py-1 rounded-full bg-primary/10 text-primary">                  
+                  {task.eisenhowerQuadrant}                
+                </span>              
+              )}                            
+              
+              {task.dueDate && (                
+                <div className="flex items-center gap-1 text-muted-foreground">                  
+                  <Calendar className="w-3 h-3" />                  
+                  {new Date(task.dueDate).toLocaleDateString()}                
+                </div>              
+              )}                            
+              
+              {task.tags.length > 0 && (                
+                <div className="flex items-center gap-1">                  
+                  <Tag className="w-3 h-3 text-muted-foreground" />                  
+                  <span className="text-muted-foreground">                    
+                    {task.tags.slice(0, 2).join(', ')}                    
+                    {task.tags.length > 2 && ` +${task.tags.length - 2}`}                  
+                  </span>                
+                </div>              
+              )}           
+            </div>          
+          </div>        
+        </div>               
+        
+        <div className="flex items-center gap-2">          
+          <button            
+            onClick={() => onEdit(task)}            
+            className="p-2 hover:bg-background/50 rounded-lg transition-colors"          
+          >            
+            <Edit3 className="w-4 h-4 text-muted-foreground hover:text-primary" />          
+          </button>          
+          <button            
+            onClick={() => onDelete(task.id)}            
+            className="p-2 hover:bg-background/50 rounded-lg transition-colors"          
+          >            
+            <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />          
+          </button>        
+        </div>      
+      </div>    
+    </MotionDiv>  
+  );
+}
+
+export default function TasksPage() {  
+  const [tasks, setTasks] = useState<Task[]>([]);  
+  const [filter, setFilter] = useState<{ tag?: string; quadrant?: string; date?: string; search?: string }>({});  
+  const [editing, setEditing] = useState<Task | null>(null);  
+  const [showCreateModal, setShowCreateModal] = useState(false);  
+  
+  useEffect(() => {    
+    fetchTasks();  
+  }, []); // Remove filter dependency since we're doing client-side filtering now  
+  
+  const fetchTasks = async () => {    
+    try {      
+      const data = await TaskService.getAll();
+      setTasks(data);    
+    } catch (error) {      
+      console.error('Failed to fetch tasks:', error);    
+    }  
+  };  
+  
+  const handleToggleComplete = async (id: string) => {    
+    const task = tasks.find(t => t.id === id);    
+    if (!task) return;        
+    
+    try {      
+      await TaskService.update(id, { completed: !task.completed });      
+      fetchTasks();    
+    } catch (error) {      
+      console.error('Failed to toggle task:', error);    
+    }  
+  };  
+  
+  const handleDelete = async (id: string) => {    
+    try {      
+      await TaskService.delete(id);      
+      fetchTasks();    
+    } catch (error) {      
+      console.error('Failed to delete task:', error);    
+    }  
+  };
+
+  const handleSaveTask = async (taskData: Partial<Task>) => {
+    try {
+      if (editing) {
+        // Update existing task
+        await TaskService.update(editing.id, taskData);
+      } else {
+        // Create new task
+        await TaskService.create(taskData as Omit<Task, 'id' | 'createdAt' | 'updatedAt'>);
+      }
+      
+      fetchTasks();
+      setShowCreateModal(false);
+      setEditing(null);
+    } catch (error) {
+      console.error('Failed to save task:', error);
     }
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setEditing(null);
+  };  
+  
+  const filteredTasks = tasks.filter(task => {    
+    // Search filter
+    if (filter.search) {      
+      const searchLower = filter.search.toLowerCase();      
+      const matchesSearch = task.title.toLowerCase().includes(searchLower) ||             
+                           task.description?.toLowerCase().includes(searchLower) ||             
+                           task.tags.some(tag => tag.toLowerCase().includes(searchLower));
+      if (!matchesSearch) return false;
+    }
+    
+    // Quadrant filter
+    if (filter.quadrant && task.eisenhowerQuadrant !== filter.quadrant) {
+      return false;
+    }
+    
+    // Tag filter
+    if (filter.tag && !task.tags.includes(filter.tag)) {
+      return false;
+    }
+    
+    // Date filter
+    if (filter.date) {
+      if (!task.calendarDate && !task.dueDate) return false;
+      const taskDate = task.calendarDate || task.dueDate;
+      if (taskDate !== filter.date) return false;
+    }
+    
     return true;
   });
 
@@ -14,7 +209,9 @@
           className="mb-8"
         >
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-4xl font-bold gradient-text">Tasks</h1>
+            <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity">
+              <h1 className="text-4xl font-bold gradient-text">Tasks</h1>
+            </Link>
             <button
               onClick={() => setShowCreateModal(true)}
               className="button-primary px-6 py-3 rounded-xl flex items-center gap-2 smooth-hover"
@@ -106,6 +303,14 @@
             ))
           )}
         </div>
+
+        {/* Task Form Modal */}
+        <TaskForm
+          task={editing}
+          isOpen={showCreateModal || editing !== null}
+          onClose={handleCloseModal}
+          onSave={handleSaveTask}
+        />
       </div>
     </main>
   );

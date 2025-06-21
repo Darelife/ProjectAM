@@ -17,6 +17,7 @@ import {
   TrendingUp,
   Calendar
 } from 'lucide-react';
+import Link from 'next/link';
 
 type TimerState = 'idle' | 'running' | 'paused';
 type SessionType = 'work' | 'shortBreak' | 'longBreak';
@@ -399,10 +400,12 @@ export default function PomodoroPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8 text-center"
         >
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Clock className="w-8 h-8 text-teal-500" />
-            <h1 className="text-4xl font-bold gradient-text">Focus Timer</h1>
-          </div>
+          <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <Clock className="w-8 h-8 text-teal-500" />
+              <h1 className="text-4xl font-bold gradient-text">Focus Timer</h1>
+            </div>
+          </Link>
           <p className="text-muted-foreground">
             Use the Pomodoro Technique to boost your productivity
           </p>

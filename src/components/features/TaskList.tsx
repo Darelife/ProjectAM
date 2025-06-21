@@ -1,10 +1,11 @@
 "use client";
 
 import { MotionDiv } from "@/components/ui/motion";
-import { CheckCircle2, Circle, Plus, Trash2, Calendar } from "lucide-react";
+import { CheckCircle2, Circle, Plus, Trash2, Calendar, Settings } from "lucide-react";
 import { useState, useEffect } from "react";
-import { TaskService } from "@/services/TaskService";
+import { TaskService } from "@/services";
 import { Task } from "@/types/Task";
+import Link from "next/link";
 
 export function TaskList() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -73,6 +74,17 @@ export function TaskList() {
       animate={{ opacity: 1, y: 0 }}
       className="glass-effect rounded-xl p-6 shadow-xl"
     >
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold">Today's Tasks</h3>
+        <Link 
+          href="/tasks"
+          className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-background/50"
+        >
+          <Settings className="w-4 h-4" />
+          Manage All
+        </Link>
+      </div>
+      
       <div className="flex gap-2 mb-6">
         <input
           type="text"

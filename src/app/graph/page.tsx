@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { NoteService } from "@/services/NoteService";
 import { Note } from "@/types/Note";
+import NextLink from 'next/link';
+import { TopBar } from '../../components/layout/TopBar';
 
 interface GraphNode {
   id: string;
@@ -104,6 +106,7 @@ export default function GraphPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <TopBar />
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <MotionDiv
@@ -111,12 +114,14 @@ export default function GraphPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <Network className="w-8 h-8 text-teal-500" />
-            <h1 className="text-4xl font-bold gradient-text">
-              Knowledge Graph
-            </h1>
-          </div>
+          <NextLink href="/" className="cursor-pointer hover:opacity-80 transition-opacity">
+            <div className="flex items-center gap-3 mb-4">
+              <Network className="w-8 h-8 text-teal-500" />
+              <h1 className="text-4xl font-bold gradient-text">
+                Knowledge Graph
+              </h1>
+            </div>
+          </NextLink>
           <p className="text-muted-foreground">
             Visualize connections between your notes and discover knowledge patterns
           </p>

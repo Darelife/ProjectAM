@@ -1,4 +1,4 @@
-import { JsonDB } from '../lib/jsonDB';
+import { JsonDB } from '../lib/jsonDB.server';
 import { Task, TaskSchema } from '../types/Task';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';

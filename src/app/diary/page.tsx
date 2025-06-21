@@ -17,18 +17,9 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-
-interface DiaryEntry {
-  id: string;
-  title: string;
-  content: string;
-  mood: 'happy' | 'neutral' | 'sad' | 'excited';
-  date: string;
-  tags: string[];
-  linkedNoteIds: string[];
-  createdAt: string;
-  updatedAt: string;
-}
+import Link from 'next/link';
+import { DiaryEntryModal } from '../../components/features/DiaryEntryModal';
+import { DiaryService, DiaryEntry } from '../../services';
 
 interface DiaryEntryCardProps {
   entry: DiaryEntry;
@@ -137,53 +128,46 @@ export default function DiaryPage() {
 
   const fetchEntries = async () => {
     try {
-      // Mock data for now - replace with actual API call
-      const mockEntries: DiaryEntry[] = [
-        {
-          id: '1',
-          title: 'Great Progress Today',
-          content: 'Made significant progress on the project today. The new UI components are looking fantastic and the user feedback has been very positive. Feeling accomplished and motivated to continue tomorrow.',
-          mood: 'happy',
-          date: new Date().toISOString().split('T')[0],
-          tags: ['work', 'progress', 'ui', 'success'],
-          linkedNoteIds: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          title: 'Reflection on Challenges',
-          content: 'Today was challenging with several technical obstacles, but I learned a lot about problem-solving and persistence. Sometimes the difficult days teach us the most valuable lessons.',
-          mood: 'neutral',
-          date: new Date(Date.now() - 86400000).toISOString().split('T')[0], // Yesterday
-          tags: ['reflection', 'challenges', 'learning'],
-          linkedNoteIds: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '3',
-          title: 'Exciting New Ideas',
-          content: 'Had some amazing brainstorming sessions today! The team came up with brilliant ideas for the next phase of development. I\'m so excited about the potential and can\'t wait to start implementing these concepts.',
-          mood: 'excited',
-          date: new Date(Date.now() - 172800000).toISOString().split('T')[0], // 2 days ago
-          tags: ['brainstorming', 'ideas', 'team', 'innovation'],
-          linkedNoteIds: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ];
-      setEntries(mockEntries);
+      const data = await DiaryService.getAll();
+      setEntries(data);
     } catch (error) {
       console.error('Failed to fetch diary entries:', error);
+      // Fallback to empty array if API fails
+      setEntries([]);
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
-      setEntries(prev => prev.filter(entry => entry.id !== id));
+      const success = await DiaryService.delete(id);
+      if (success) {
+        setEntries(prev => prev.filter(entry => entry.id !== id));
+      } else {
+        console.error('Failed to delete entry');
+      }
     } catch (error) {
       console.error('Failed to delete entry:', error);
+    }
+  };
+
+  const handleSaveEntry = async (entryData: Partial<DiaryEntry>) => {
+    try {
+      if (editing) {
+        // Update existing entry
+        const updatedEntry = await DiaryService.update(editing.id, entryData);
+        if (updatedEntry) {
+          setEntries(prev => prev.map(entry => 
+            entry.id === editing.id ? updatedEntry : entry
+          ));
+          setEditing(null);
+        }
+      } else {
+        // Create new entry
+        const newEntry = await DiaryService.create(entryData as Omit<DiaryEntry, 'id' | 'createdAt' | 'updatedAt'>);
+        setEntries(prev => [newEntry, ...prev]);
+      }
+    } catch (error) {
+      console.error('Failed to save entry:', error);
     }
   };
 
@@ -222,10 +206,12 @@ export default function DiaryPage() {
           className="mb-8"
         >
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <BookOpen className="w-8 h-8 text-teal-500" />
-              <h1 className="text-4xl font-bold gradient-text">Diary</h1>
-            </div>
+            <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity">
+              <div className="flex items-center gap-3">
+                <BookOpen className="w-8 h-8 text-teal-500" />
+                <h1 className="text-4xl font-bold gradient-text">Diary</h1>
+              </div>
+            </Link>
             <button
               onClick={() => setShowCreateModal(true)}
               className="button-primary px-6 py-3 rounded-xl flex items-center gap-2 smooth-hover"
@@ -331,6 +317,17 @@ export default function DiaryPage() {
           )}
         </div>
       </div>
+
+      {/* Diary Entry Modal */}
+      <DiaryEntryModal
+        isOpen={showCreateModal || editing !== null}
+        onClose={() => {
+          setShowCreateModal(false);
+          setEditing(null);
+        }}
+        onSave={handleSaveEntry}
+        entry={editing}
+      />
     </main>
   );
 }

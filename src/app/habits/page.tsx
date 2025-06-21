@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { HabitService } from "@/services/HabitService";
 import { Habit, CreateHabitData } from "@/types/Habit";
+import Link from 'next/link';
+import { TopBar } from '../../components/layout/TopBar';
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const HABIT_COLORS = [
@@ -230,6 +232,7 @@ export default function HabitsPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <TopBar />
       <div className="container mx-auto px-4 py-8">
         {/* Header Section */}
         <MotionDiv
@@ -238,14 +241,16 @@ export default function HabitsPage() {
           className="mb-8"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-bold gradient-text">
-                Habit Tracker
-              </h1>
-              <p className="text-muted-foreground mt-2">
-                Build consistency, track progress, achieve your goals
-              </p>
-            </div>
+            <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity">
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-bold gradient-text">
+                  Habit Tracker
+                </h1>
+                <p className="text-muted-foreground mt-2">
+                  Build consistency, track progress, achieve your goals
+                </p>
+              </div>
+            </Link>
             <button
               onClick={() => {
                 resetForm();
