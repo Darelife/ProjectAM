@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import NextLink from 'next/link';
 import { NoteService } from '@/services/NoteService';
-import { Note, CreateNoteData } from '@/types/Note';
+import { Note, NoteInsert } from '@/types/Database';
 import { TopBar } from '../../components/layout/TopBar';
 
 interface NoteCardProps {
@@ -101,17 +101,17 @@ function NoteCard({ note, onEdit, onDelete, onViewBacklinks }: NoteCardProps) {
             </div>
           )}
           
-          {note.linkedNoteIds.length > 0 && (
+          {note.linked_note_ids.length > 0 && (
             <div className="flex items-center gap-1 text-teal-500">
               <Link className="w-3 h-3" />
-              <span>{note.linkedNoteIds.length} links</span>
+              <span>{note.linked_note_ids.length} links</span>
             </div>
           )}
         </div>
         
         <div className="flex items-center gap-1 text-muted-foreground">
           <Calendar className="w-3 h-3" />
-          {new Date(note.updatedAt).toLocaleDateString()}
+          {new Date(note.updated_at).toLocaleDateString()}
         </div>
       </div>
     </MotionDiv>
@@ -121,7 +121,7 @@ function NoteCard({ note, onEdit, onDelete, onViewBacklinks }: NoteCardProps) {
 // Note Editor Component
 interface NoteEditorProps {
   initialNote?: Note | null;
-  onSave: (note: Note | CreateNoteData) => void;
+  onSave: (note: Note | NoteInsert) => void;
   onCancel: () => void;
   previewMode: boolean;
   availableNotes: Note[];
@@ -140,7 +140,7 @@ function NoteEditor({ initialNote, onSave, onCancel, previewMode, availableNotes
       title: title.trim(),
       content: content.trim(),
       tags: tags.filter(tag => tag.trim()),
-      linkedNoteIds: [],
+      linked_note_ids: [],
     };
 
     if (initialNote) {
@@ -305,11 +305,13 @@ export default function NotesPage() {
     }
   };
 
-  const handleCreate = async (data: CreateNoteData) => {
+  const handleCreate = async (data: NoteInsert) => {
     try {
       const newNote = await NoteService.create(data);
-      setNotes(prev => [newNote, ...prev]);
-      setShowCreateModal(false);
+      if (newNote) {
+        setNotes(prev => [newNote, ...prev]);
+        setShowCreateModal(false);
+      }
     } catch (error) {
       console.error('Failed to create note:', error);
     }
@@ -366,7 +368,7 @@ export default function NotesPage() {
     totalNotes: notes.length,
     totalBacklinks: notes.reduce((sum, note) => 
       sum + NoteService.extractBacklinks(note.content).length, 0),
-    totalDirectLinks: notes.reduce((sum, note) => sum + note.linkedNoteIds.length, 0),
+    totalDirectLinks: notes.reduce((sum, note) => sum + note.linked_note_ids.length, 0),
     totalTags: allTags.length
   };
 
@@ -381,6 +383,7 @@ export default function NotesPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <TopBar />
+      <div className="h-16"></div>
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <MotionDiv
@@ -528,7 +531,7 @@ export default function NotesPage() {
 
               <NoteEditor
                 initialNote={editing}
-                onSave={(note) => editing ? handleEdit(note as Note) : handleCreate(note as CreateNoteData)}
+                onSave={(note) => editing ? handleEdit(note as Note) : handleCreate(note as NoteInsert)}
                 onCancel={() => {
                   setShowCreateModal(false);
                   setEditing(null);
@@ -593,10 +596,10 @@ export default function NotesPage() {
                 <div>
                   <h4 className="font-semibold mb-3 flex items-center gap-2">
                     <Link className="w-4 h-4 text-teal-500" />
-                    Direct Links ({backlinksView.linkedNoteIds.length})
+                    Direct Links ({backlinksView.linked_note_ids.length})
                   </h4>
                   <div className="space-y-2">
-                    {backlinksView.linkedNoteIds.map(linkedId => {
+                    {backlinksView.linked_note_ids.map((linkedId: string) => {
                       const linkedNote = notes.find(n => n.id === linkedId);
                       return linkedNote ? (
                         <div key={linkedNote.id} className="p-3 glass-effect rounded-lg">
@@ -611,7 +614,7 @@ export default function NotesPage() {
                 </div>
 
                 {NoteService.extractBacklinks(backlinksView.content).length === 0 && 
-                 backlinksView.linkedNoteIds.length === 0 && (
+                 backlinksView.linked_note_ids.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     <Network className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>No connections found</p>

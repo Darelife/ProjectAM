@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Task } from '../../types/Task';
+import { Task } from '../../types/Database';
 import { TopBar } from '../../components/layout/TopBar';
 import { MotionDiv } from '../../components/ui/motion';
-import { TaskForm } from '../../components/features/TaskForm';
+import { TaskService } from '../../services/TaskService';
 import { 
   Calendar as CalendarIcon, 
   ChevronLeft, 
@@ -13,7 +13,6 @@ import {
   Clock,
   CheckCircle2,
   Circle,
-  Filter
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -27,19 +26,20 @@ interface CalendarDay {
 function CalendarDay({ 
   day, 
   onDayClick, 
-  selectedDate 
+  selectedDate,
+  viewMode 
 }: { 
   day: CalendarDay; 
   onDayClick: (date: Date) => void;
   selectedDate: Date | null;
+  viewMode: 'month' | 'week';
 }) {
   const isSelected = selectedDate && 
     day.date.toDateString() === selectedDate.toDateString();
   
   const completedTasks = day.tasks.filter(t => t.completed).length;
   const totalTasks = day.tasks.length;
-  const hasHighPriority = day.tasks.some(t => t.priority === 'high' && !t.completed);
-  
+  const hasHighPriority = day.tasks.some(t => t.priority === 'high' && !t.completed);  
   return (
     <button
       onClick={() => onDayClick(day.date)}
@@ -64,7 +64,7 @@ function CalendarDay({
         {totalTasks > 0 && (
           <div className="flex-1 flex flex-col justify-end">
             <div className="space-y-1">
-              {day.tasks.slice(0, 2).map((task, idx) => (
+              {day.tasks.slice(0, viewMode === 'month' ? 2 : day.tasks.length).map((task, idx) => (
                 <div
                   key={idx}
                   className={`text-xs p-1 rounded truncate ${
@@ -80,7 +80,7 @@ function CalendarDay({
                   {task.title}
                 </div>
               ))}
-              {totalTasks > 2 && (
+              {totalTasks > 2 && viewMode === 'month' && (
                 <div className="text-xs text-muted-foreground text-center">
                   +{totalTasks - 2} more
                 </div>
@@ -127,8 +127,8 @@ function TaskSidebar({
   }
 
   const dayTasks = tasks.filter(task => {
-    if (!task.calendarDate && !task.dueDate) return false;
-    const taskDate = new Date(task.calendarDate || task.dueDate!);
+    if (!task.calendar_date && !task.due_date) return false;
+    const taskDate = new Date(task.calendar_date || task.due_date!);
     return taskDate.toDateString() === selectedDate.toDateString();
   });
 
@@ -210,11 +210,7 @@ function TaskSidebar({
                       {task.priority}
                     </span>
                     
-                    {task.eisenhowerQuadrant && (
-                      <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary">
-                        {task.eisenhowerQuadrant}
-                      </span>
-                    )}
+                    {/* Remove eisenhowerQuadrant since it's not in our schema */}
                   </div>
                 </div>
               </div>
@@ -224,6 +220,14 @@ function TaskSidebar({
       </div>
     </div>
   );
+}
+
+// Helper to get start of week (Sunday)
+function getStartOfWeek(date: Date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - d.getDay());
+  return d;
 }
 
 export default function CalendarPage() {
@@ -240,8 +244,7 @@ export default function CalendarPage() {
 
   const fetchTasks = async () => {
     try {
-      const res = await fetch('/api/tasks');
-      const data = await res.json();
+      const data = await TaskService.getAll();
       setTasks(data);
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
@@ -253,10 +256,10 @@ export default function CalendarPage() {
     if (!task) return;
     
     try {
-      await fetch(`/api/tasks/${taskId}`, {
-        method: 'PATCH',
+      await fetch(`/api/tasks/`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: !task.completed })
+        body: JSON.stringify({ id: taskId, completed: !task.completed })
       });
       fetchTasks();
     } catch (error) {
@@ -309,28 +312,23 @@ export default function CalendarPage() {
     setShowCreateModal(true);
   };
 
-  const generateCalendarDays = (): CalendarDay[] => {
+  // Month view: 6 weeks (42 days) grid
+  const generateMonthCalendarDays = (): CalendarDay[] => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    
     const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay());
-    
     const days: CalendarDay[] = [];
     const today = new Date();
-    
     for (let i = 0; i < 42; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
-      
       const dayTasks = tasks.filter(task => {
-        if (!task.calendarDate && !task.dueDate) return false;
-        const taskDate = new Date(task.calendarDate || task.dueDate!);
+        if (!task.calendar_date && !task.due_date) return false;
+        const taskDate = new Date(task.calendar_date || task.due_date!);
         return taskDate.toDateString() === date.toDateString();
       });
-      
       days.push({
         date: new Date(date),
         isCurrentMonth: date.getMonth() === month,
@@ -338,7 +336,29 @@ export default function CalendarPage() {
         tasks: dayTasks
       });
     }
-    
+    return days;
+  };
+
+  // Week view: 7 days, starting from the week of currentDate
+  const generateWeekCalendarDays = (): CalendarDay[] => {
+    const startOfWeek = getStartOfWeek(currentDate);
+    const days: CalendarDay[] = [];
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      const dayTasks = tasks.filter(task => {
+        if (!task.calendar_date && !task.due_date) return false;
+        const taskDate = new Date(task.calendar_date || task.due_date!);
+        return taskDate.toDateString() === date.toDateString();
+      });
+      days.push({
+        date: new Date(date),
+        isCurrentMonth: true,
+        isToday: date.toDateString() === today.toDateString(),
+        tasks: dayTasks
+      });
+    }
     return days;
   };
 
@@ -350,16 +370,35 @@ export default function CalendarPage() {
     });
   };
 
-  const calendarDays = generateCalendarDays();
-  const monthName = currentDate.toLocaleDateString('en-US', { 
-    month: 'long', 
-    year: 'numeric' 
-  });
+  const navigateWeek = (direction: 'prev' | 'next') => {
+    setCurrentDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setDate(prev.getDate() + (direction === 'next' ? 7 : -7));
+      return newDate;
+    });
+  };
+
+  const calendarDays = viewMode === 'month'
+    ? generateMonthCalendarDays()
+    : generateWeekCalendarDays();
+
+  const monthName = viewMode === 'month'
+    ? currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : (() => {
+        const start = getStartOfWeek(currentDate);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return `${startStr} - ${endStr}`;
+      })();
+
+  const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
     <main className="min-h-screen bg-background text-foreground">
       <TopBar />
-      
+      <div className="h-16"></div>
       <div className="container mx-auto px-4 pt-24 pb-8">
         <MotionDiv
           initial={{ opacity: 0, y: 20 }}
@@ -411,7 +450,7 @@ export default function CalendarPage() {
                 <h2 className="text-2xl font-bold">{monthName}</h2>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => navigateMonth('prev')}
+                    onClick={() => viewMode === 'month' ? navigateMonth('prev') : navigateWeek('prev')}
                     className="p-2 hover:bg-background/50 rounded-lg transition-colors"
                   >
                     <ChevronLeft className="w-5 h-5" />
@@ -423,7 +462,7 @@ export default function CalendarPage() {
                     Today
                   </button>
                   <button
-                    onClick={() => navigateMonth('next')}
+                    onClick={() => viewMode === 'month' ? navigateMonth('next') : navigateWeek('next')}
                     className="p-2 hover:bg-background/50 rounded-lg transition-colors"
                   >
                     <ChevronRight className="w-5 h-5" />
@@ -432,8 +471,8 @@ export default function CalendarPage() {
               </div>
 
               {/* Day Headers */}
-              <div className="grid grid-cols-7 gap-2 mb-2">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+              <div className={`grid grid-cols-7 gap-2 mb-2`}>
+                {dayHeaders.map(day => (
                   <div key={day} className="text-center text-sm font-medium text-muted-foreground p-2">
                     {day}
                   </div>
@@ -441,13 +480,14 @@ export default function CalendarPage() {
               </div>
 
               {/* Calendar Grid */}
-              <div className="grid grid-cols-7 gap-2">
+              <div className={`grid grid-cols-7 gap-2`}>
                 {calendarDays.map((day, index) => (
                   <CalendarDay
                     key={index}
                     day={day}
                     onDayClick={setSelectedDate}
                     selectedDate={selectedDate}
+                    viewMode={viewMode}
                   />
                 ))}
               </div>
@@ -481,14 +521,14 @@ export default function CalendarPage() {
         >
           <div className="glass-enhanced p-4 rounded-xl text-center">
             <div className="text-2xl font-bold text-teal-500">
-              {tasks.filter(t => t.calendarDate || t.dueDate).length}
+              {tasks.filter(t => t.calendar_date || t.due_date).length}
             </div>
             <div className="text-sm text-muted-foreground">Scheduled Tasks</div>
           </div>
           
           <div className="glass-enhanced p-4 rounded-xl text-center">
             <div className="text-2xl font-bold text-green-500">
-              {tasks.filter(t => t.completed && (t.calendarDate || t.dueDate)).length}
+              {tasks.filter(t => t.completed && (t.calendar_date || t.due_date)).length}
             </div>
             <div className="text-sm text-muted-foreground">Completed</div>
           </div>
@@ -496,8 +536,8 @@ export default function CalendarPage() {
           <div className="glass-enhanced p-4 rounded-xl text-center">
             <div className="text-2xl font-bold text-red-500">
               {tasks.filter(t => {
-                if (!t.dueDate || t.completed) return false;
-                return new Date(t.dueDate) < new Date();
+                if (!t.due_date || t.completed) return false;
+                return new Date(t.due_date) < new Date();
               }).length}
             </div>
             <div className="text-sm text-muted-foreground">Overdue</div>
@@ -506,9 +546,9 @@ export default function CalendarPage() {
           <div className="glass-enhanced p-4 rounded-xl text-center">
             <div className="text-2xl font-bold text-blue-500">
               {tasks.filter(t => {
-                if (!t.dueDate || t.completed) return false;
+                if (!t.due_date || t.completed) return false;
                 const today = new Date();
-                const dueDate = new Date(t.dueDate);
+                const dueDate = new Date(t.due_date);
                 const diffTime = dueDate.getTime() - today.getTime();
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 return diffDays <= 7 && diffDays >= 0;
@@ -518,14 +558,25 @@ export default function CalendarPage() {
           </div>
         </MotionDiv>
 
-        {/* Task Form Modal */}
-        <TaskForm
-          task={editing}
-          isOpen={showCreateModal || editing !== null}
-          onClose={handleCloseModal}
-          onSave={handleSaveTask}
-          selectedDate={selectedDate}
-        />
+        {/* Task Form Modal - Temporarily disabled */}
+        {(showCreateModal || editing !== null) && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="glass-enhanced rounded-xl p-6 w-full max-w-2xl">
+              <h2 className="text-xl font-bold mb-4">
+                {editing ? 'Edit Task' : 'Create Task'}
+              </h2>
+              <p className="text-muted-foreground mb-4">
+                Task creation/editing temporarily disabled during Supabase migration.
+              </p>
+              <button
+                onClick={handleCloseModal}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

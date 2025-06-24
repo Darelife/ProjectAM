@@ -22,7 +22,7 @@ import {
   Save
 } from "lucide-react";
 import { HabitService } from "@/services/HabitService";
-import { Habit, CreateHabitData } from "@/types/Habit";
+import { Habit, CreateHabitData, HabitWithStreaks, addStreaksToHabit } from "@/types/Habit";
 import Link from 'next/link';
 import { TopBar } from '../../components/layout/TopBar';
 
@@ -41,9 +41,9 @@ const HABIT_COLORS = [
 const HABIT_ICONS = ["🏃", "📚", "🧘", "💧", "🏋️", "🎯", "✍️", "🎵", "🥗", "😴", "🎨", "📱", "🌱", "🍎"];
 
 export default function HabitsPage() {
-  const [habits, setHabits] = useState<Habit[]>([]);
+  const [habits, setHabits] = useState<HabitWithStreaks[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  const [editingHabit, setEditingHabit] = useState<HabitWithStreaks | null>(null);
   const [newHabit, setNewHabit] = useState<CreateHabitData>({
     name: "",
     description: "",
@@ -52,7 +52,6 @@ export default function HabitsPage() {
     targetFrequency: 7,
     tags: [],
     completions: {},
-    weeklyProgress: Array(7).fill(false),
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<"all" | "active" | "completed">("all");
@@ -65,7 +64,9 @@ export default function HabitsPage() {
   const loadHabits = async () => {
     try {
       const habitsData = await HabitService.getAll();
-      setHabits(habitsData);
+      // Add calculated streaks to each habit
+      const habitsWithStreaks = habitsData.map(habit => addStreaksToHabit(habit));
+      setHabits(habitsWithStreaks);
     } catch (error) {
       console.error("Failed to load habits:", error);
     } finally {
@@ -82,7 +83,6 @@ export default function HabitsPage() {
       targetFrequency: 7,
       tags: [],
       completions: {},
-      weeklyProgress: Array(7).fill(false),
     });
     setEditingHabit(null);
   };
@@ -105,7 +105,7 @@ export default function HabitsPage() {
     }
   };
 
-  const handleEditHabit = (habit: Habit) => {
+  const handleEditHabit = (habit: HabitWithStreaks) => {
     setNewHabit({
       name: habit.name,
       description: habit.description || "",
@@ -114,25 +114,17 @@ export default function HabitsPage() {
       targetFrequency: habit.targetFrequency,
       tags: habit.tags,
       completions: habit.completions,
-      weeklyProgress: habit.weeklyProgress,
     });
     setEditingHabit(habit);
     setShowAddForm(true);
   };
 
-  const toggleHabitDay = async (habitId: string, dayIndex: number) => {
+  const toggleHabitDay = async (habitId: string, dateStr: string) => {
     try {
       const habit = habits.find(h => h.id === habitId);
       if (!habit) return;
 
-      // Calculate the correct date for the current week
-      const today = new Date();
-      const targetDate = new Date(today);
-      // dayIndex now matches JavaScript's getDay() where 0=Sunday, 1=Monday, etc.
-      targetDate.setDate(today.getDate() - today.getDay() + dayIndex);
-      const dateStr = targetDate.toISOString().split('T')[0];
-
-      if (habit.weeklyProgress[dayIndex]) {
+      if (habit.completions[dateStr]) {
         await HabitService.markIncomplete(habitId, dateStr);
       } else {
         await HabitService.markComplete(habitId, dateStr);
@@ -163,61 +155,98 @@ export default function HabitsPage() {
       case "active":
         return habit.streak > 0;
       case "completed":
-        return habit.weeklyProgress.filter(Boolean).length >= habit.targetFrequency;
+        // Check if habit was completed enough times this week
+        const today = new Date();
+        const currentWeekDates = [];
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(today);
+          date.setDate(today.getDate() - today.getDay() + i);
+          currentWeekDates.push(date.toISOString().split('T')[0]);
+        }
+        const weekCompletions = currentWeekDates.filter(date => habit.completions[date]).length;
+        return weekCompletions >= habit.targetFrequency;
       default:
         return true;
     }
   });
 
-  const getHabitProgress = (habit: Habit) => {
-    const completed = habit.weeklyProgress.filter(Boolean).length;
-    return Math.min((completed / habit.targetFrequency) * 100, 100);
+  const getHabitProgress = (habit: HabitWithStreaks) => {
+    const today = new Date();
+    const lastYearDays = [];
+    
+    // Generate last 365 days
+    for (let i = 364; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      lastYearDays.push(date.toISOString().split('T')[0]);
+    }
+    
+    const completed = lastYearDays.filter(date => habit.completions[date]).length;
+    return Math.min((completed / 365) * 100, 100);
+  };
+
+  const generateYearGrid = (habit: HabitWithStreaks) => {
+    const today = new Date();
+    const oneYearAgo = new Date(today);
+    oneYearAgo.setFullYear(today.getFullYear() - 1);
+    oneYearAgo.setDate(oneYearAgo.getDate() + 1); // Start from exactly one year ago
+    
+    // Find the first Sunday on or before one year ago
+    const startDate = new Date(oneYearAgo);
+    startDate.setDate(startDate.getDate() - startDate.getDay());
+    
+    const weeks = [];
+    const currentDate = new Date(startDate);
+    
+    // Generate 53 weeks (GitHub style)
+    for (let week = 0; week < 53; week++) {
+      const weekData = [];
+      
+      for (let day = 0; day < 7; day++) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        const isCompleted = Boolean(habit.completions[dateStr]);
+        const isToday = dateStr === today.toISOString().split('T')[0];
+        const isFuture = currentDate > today;
+        
+        // Get day name and formatted date for tooltip
+        const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const formattedDate = currentDate.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric', 
+          year: 'numeric' 
+        });
+        
+        weekData.push({
+          date: dateStr,
+          completed: isCompleted,
+          isToday,
+          isFuture,
+          dayName,
+          formattedDate,
+          month: currentDate.getMonth(),
+          dayOfMonth: currentDate.getDate()
+        });
+        
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      weeks.push(weekData);
+    }
+    
+    return weeks;
   };
 
   const getOverallStats = () => {
     const totalHabits = habits.length;
     const activeStreaks = habits.filter(h => h.streak > 0).length;
-    const completedToday = habits.filter(h => {
-      const today = new Date().getDay(); // 0=Sunday, 1=Monday, etc.
-      return h.weeklyProgress[today];
-    }).length;
+    
+    // Count habits completed today
+    const today = new Date().toISOString().split('T')[0];
+    const completedToday = habits.filter(h => h.completions[today]).length;
+    
     const totalCompletions = habits.reduce((sum, h) => sum + h.totalCompletions, 0);
 
     return { totalHabits, activeStreaks, completedToday, totalCompletions };
-  };
-
-  const getContributionGrid = (habit: Habit) => {
-    const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() - 91); // Show last ~13 weeks (91 days)
-    
-    const grid = [];
-    
-    // Find the start of the week (Sunday) for the start date
-    const startOfWeek = new Date(startDate);
-    startOfWeek.setDate(startDate.getDate() - startDate.getDay());
-    
-    // Generate 13 weeks of data
-    for (let week = 0; week < 13; week++) {
-      const weekData = [];
-      for (let day = 0; day < 7; day++) {
-        const date = new Date(startOfWeek);
-        date.setDate(startOfWeek.getDate() + (week * 7) + day);
-        
-        const dateStr = date.toISOString().split('T')[0];
-        const isCompleted = Boolean(habit.completions?.[dateStr]);
-        const isFuture = date > today;
-        
-        weekData.push({
-          date: dateStr,
-          completed: isCompleted,
-          isFuture
-        });
-      }
-      grid.push(weekData);
-    }
-    
-    return grid;
   };
 
   const stats = getOverallStats();
@@ -233,6 +262,7 @@ export default function HabitsPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <TopBar />
+      <div className="h-16"></div>
       <div className="container mx-auto px-4 py-8">
         {/* Header Section */}
         <MotionDiv
@@ -336,9 +366,20 @@ export default function HabitsPage() {
                 <TrendingUp className="w-6 h-6 text-green-500" />
               </div>
               <div>
-                <h3 className="font-semibold">This Week</h3>
+                <h3 className="font-semibold">Last 7 Days</h3>
                 <p className="text-2xl font-bold">
-                  {habits.reduce((acc, h) => acc + h.weeklyProgress.filter(Boolean).length, 0)}
+                  {(() => {
+                    const last7Days: string[] = [];
+                    const today = new Date();
+                    for (let i = 6; i >= 0; i--) {
+                      const date = new Date(today);
+                      date.setDate(today.getDate() - i);
+                      last7Days.push(date.toISOString().split('T')[0]);
+                    }
+                    return habits.reduce((acc, h) => 
+                      acc + last7Days.filter(date => h.completions[date]).length, 0
+                    );
+                  })()}
                 </p>
               </div>
             </div>
@@ -346,7 +387,7 @@ export default function HabitsPage() {
         </MotionDiv>
 
         {/* Habits Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           {filteredHabits.map((habit, index) => (
             <MotionDiv
               key={habit.id}
@@ -387,83 +428,124 @@ export default function HabitsPage() {
               {/* Progress Indicator */}
               <div className="mb-4">
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">Weekly Progress</span>
+                  <span className="text-muted-foreground">Activity this year</span>
                   <span className="font-medium">
-                    {habit.weeklyProgress.filter(Boolean).length}/{habit.targetFrequency}
+                    {Object.values(habit.completions).filter(Boolean).length} total
                   </span>
                 </div>
                 <div className="w-full bg-background/50 rounded-full h-2.5 overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-teal-500 to-blue-500 transition-all duration-500"
+                    className="h-full rounded-full bg-gradient-to-r from-green-500 to-green-600 transition-all duration-500"
                     style={{ width: `${getHabitProgress(habit)}%` }}
                   />
                 </div>
               </div>
 
-              {/* Weekly Calendar */}
-              <div className="grid grid-cols-7 gap-2 mb-4">
-                {DAYS.map((day, dayIndex) => (
-                  <div key={day} className="text-center">
-                    <div className="text-xs text-muted-foreground mb-1.5 font-medium">{day}</div>
-                    <button
-                      onClick={() => toggleHabitDay(habit.id, dayIndex)}
-                      className={`w-9 h-9 rounded-full transition-all duration-200 hover:scale-110 flex items-center justify-center ${
-                        habit.weeklyProgress[dayIndex]
-                          ? "bg-gradient-to-r from-teal-500 to-blue-500 text-white shadow-lg"
-                          : "bg-background/50 border-2 border-border/40 hover:border-teal-500/50"
-                      }`}
-                    >
-                      {habit.weeklyProgress[dayIndex] ? (
-                        <CheckCircle2 className="w-5 h-5" />
-                      ) : (
-                        <Circle className="w-4 h-4 text-muted-foreground" />
-                      )}
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              {/* GitHub-style Contribution Grid */}
-              <div className="mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-sm font-medium text-muted-foreground">Last 13 weeks</h4>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>Less</span>
-                    <div className="flex gap-1">
-                      <div className="w-2.5 h-2.5 rounded-sm bg-background/50 border border-border/30"></div>
-                      <div className="w-2.5 h-2.5 rounded-sm bg-teal-500/30"></div>
-                      <div className="w-2.5 h-2.5 rounded-sm bg-teal-500/60"></div>
-                      <div className="w-2.5 h-2.5 rounded-sm bg-teal-500/90"></div>
-                      <div className="w-2.5 h-2.5 rounded-sm bg-teal-500"></div>
-                    </div>
-                    <span>More</span>
-                  </div>
+              {/* GitHub-style Year Grid */}
+              <div className="mb-6">
+                {/* Title and year */}
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-sm font-medium">
+                    {Object.values(habit.completions).filter(Boolean).length} contributions in the last year
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Learn how we count contributions
+                  </span>
                 </div>
-                <div className="flex gap-1 overflow-x-auto">
-                  {getContributionGrid(habit).map((week, weekIndex) => (
-                    <div key={weekIndex} className="flex flex-col gap-1 flex-shrink-0">
-                      {week.map((day, dayIndex) => {
-                        const today = new Date().toISOString().split('T')[0];
-                        const isToday = day.date === today;
-                        
-                        return (
-                          <div
-                            key={day.date}
-                            className={`w-2.5 h-2.5 rounded-sm transition-colors cursor-pointer ${
-                              day.isFuture
-                                ? "bg-background/30 border border-border/20"
-                                : day.completed
-                                ? "bg-teal-500 hover:bg-teal-400"
-                                : "bg-background/50 border border-border/30 hover:border-teal-500/50"
-                            } ${
-                              isToday ? "ring-1 ring-teal-500 ring-offset-1 ring-offset-background" : ""
-                            }`}
-                            title={`${day.date}: ${day.completed ? "Completed" : "Not completed"}`}
-                          />
-                        );
-                      })}
+                
+                {/* Main grid container */}
+                <div className="bg-background/30 rounded-lg p-4 border border-border/20">
+                  {/* Month labels */}
+                  <div className="flex mb-2">
+                    <div className="w-8"></div> {/* Space for day labels */}
+                    <div className="flex-1">
+                      {/* <div className="grid grid-cols-12 gap-0 text-xs text-muted-foreground">
+                        {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((month, idx) => (
+                          <div key={month} className="text-center">{month}</div>
+                        ))}
+                      </div> */}
                     </div>
-                  ))}
+                  </div>
+                  
+                  {/* Main grid with day labels */}
+                  <div className="flex">
+                    {/* Day of week labels */}
+                    {/* <div className="w-8 flex flex-col justify-between text-xs text-muted-foreground pr-2">
+                      <div className="h-3"></div>
+                      <div>Mon</div>
+                      <div className="h-3"></div>
+                      <div>Wed</div>
+                      <div className="h-3"></div>
+                      <div>Fri</div>
+                      <div className="h-3"></div>
+                    </div> */}
+                    
+                    {/* Contribution grid */}
+                    <div className="flex-1 overflow-x-auto">
+                      <div
+                        className="grid gap-1"
+                        style={{
+                          gridTemplateColumns: "repeat(53, minmax(0, 1fr))",
+                          gridTemplateRows: "repeat(7, minmax(0, 1fr))",
+                        }}
+                      >
+                        {(() => {
+                          // Transpose the weeks array to loop by day first, then week (column-major order)
+                          const yearGrid = generateYearGrid(habit);
+                          const daysInWeek = 7;
+                          const weeksCount = yearGrid.length;
+                          let cells: JSX.Element[] = [];
+                          for (let dayIndex = 0; dayIndex < daysInWeek; dayIndex++) {
+                            for (let weekIndex = 0; weekIndex < weeksCount; weekIndex++) {
+                              const day = yearGrid[weekIndex][dayIndex];
+                              if (!day) continue;
+                              // Determine color for empty blocks
+                              let cellClass = "";
+                              if (day.isFuture) {
+                                cellClass = "bg-[#181818] border border-[#181818] cursor-not-allowed opacity-50";
+                              } else if (day.completed) {
+                                cellClass = "bg-green-500 hover:bg-green-400 shadow-sm";
+                              } else {
+                                cellClass = "bg-[#181818] border border-[#181818] hover:border-green-400/50 hover:bg-green-500/20";
+                              }
+                              cells.push(
+                                <button
+                                  key={day.date}
+                                  onClick={() => !day.isFuture && toggleHabitDay(habit.id, day.date)}
+                                  disabled={day.isFuture}
+                                  className={`w-full aspect-square rounded-sm transition-all duration-200 hover:scale-110 ${cellClass} ${day.isToday ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-background" : ""}`}
+                                  title={`${day.dayName}, ${day.formattedDate}: ${day.completed ? "Completed" : "Not completed"}`}
+                                  style={{
+                                    minWidth: "16px",
+                                    minHeight: "16px",
+                                    maxWidth: "24px",
+                                    maxHeight: "24px",
+                                  }}
+                                />
+                              );
+                            }
+                          }
+                          return cells;
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Legend */}
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="text-xs text-muted-foreground">
+                      Contributions in the last year
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Less</span>
+                      <div className="w-3 h-3 rounded-sm bg-[#181818] border border-[#181818]"></div>
+                      <div className="w-3 h-3 rounded-sm bg-green-200"></div>
+                      <div className="w-3 h-3 rounded-sm bg-green-400"></div>
+                      <div className="w-3 h-3 rounded-sm bg-green-500"></div>
+                      <div className="w-3 h-3 rounded-sm bg-green-600"></div>
+                      <span className="text-xs text-muted-foreground">More</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 

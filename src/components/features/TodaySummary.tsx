@@ -3,10 +3,10 @@
 import { MotionDiv } from "@/components/ui/motion";
 import { Calendar, Clock, Coffee, LineChart, Target } from "lucide-react";
 import { useState, useEffect } from "react";
-import { TaskService } from "@/services";
+import { TaskService } from "@/services/TaskService";
 import { HabitService } from "@/services/HabitService";
-import { Task } from "@/types/Task";
-import { Habit } from "@/types/Habit";
+import { Task } from "@/types/Database";
+import { Habit } from "@/types/Database";
 
 export function TodaySummary() {
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
@@ -20,12 +20,18 @@ export function TodaySummary() {
   const loadTodayData = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const [tasks, habits] = await Promise.all([
+      const [tasks, allHabits] = await Promise.all([
         TaskService.getByDate(today),
-        HabitService.getHabitsForDate(today)
+        HabitService.getAll()
       ]);
+      
+      // Filter habits that are completed today and add streaks
+      const todayHabitsData = allHabits
+        .filter(habit => habit.completions[today])
+        .map(habit => addStreaksToHabit(habit));
+      
       setTodayTasks(tasks);
-      setTodayHabits(habits);
+      setTodayHabits(todayHabitsData);
     } catch (error) {
       console.error("Failed to load today's data:", error);
     } finally {
@@ -35,8 +41,25 @@ export function TodaySummary() {
 
   const completedTasks = todayTasks.filter(task => task.completed).length;
   const totalTasks = todayTasks.length;
-  const completedHabits = todayHabits.length;
-  const totalHabits = todayHabits.length;
+  const completedHabits = todayHabits.length; // These are already filtered to completed today
+  
+  // Get total habits for the day calculation
+  const [allHabits, setAllHabits] = useState<HabitWithStreaks[]>([]);
+  
+  useEffect(() => {
+    const loadAllHabits = async () => {
+      try {
+        const habits = await HabitService.getAll();
+        const habitsWithStreaks = habits.map(habit => addStreaksToHabit(habit));
+        setAllHabits(habitsWithStreaks);
+      } catch (error) {
+        console.error("Failed to load all habits:", error);
+      }
+    };
+    loadAllHabits();
+  }, []);
+  
+  const totalHabits = allHabits.length;
 
   // Calculate focus time from completed pomodoro tasks
   const focusTime = todayTasks.reduce((total, task) => {

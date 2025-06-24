@@ -14,7 +14,7 @@ import {
   Activity
 } from "lucide-react";
 import { NoteService } from "@/services/NoteService";
-import { Note } from "@/types/Note";
+import { Note } from "@/types/Database";
 import NextLink from 'next/link';
 import { TopBar } from '../../components/layout/TopBar';
 
@@ -49,10 +49,13 @@ export default function GraphPage() {
         NoteService.getGraphData()
       ]);
       
-      setNotes(notesData);
-      setGraphData(graphDataResponse);
+      setNotes(notesData || []);
+      setGraphData(graphDataResponse || { nodes: [], links: [] });
     } catch (error) {
       console.error("Failed to load data:", error);
+      // Set default empty data on error
+      setNotes([]);
+      setGraphData({ nodes: [], links: [] });
     } finally {
       setLoading(false);
     }
@@ -64,6 +67,16 @@ export default function GraphPage() {
   };
 
   const getGraphStats = () => {
+    if (!graphData || !graphData.nodes || !graphData.links) {
+      return {
+        totalNodes: 0,
+        totalLinks: 0,
+        averageConnections: 0,
+        mostConnected: { node: null, connections: 0 },
+        topTags: []
+      };
+    }
+
     const totalNodes = graphData.nodes.length;
     const totalLinks = graphData.links.length;
     const averageConnections = totalNodes > 0 ? (totalLinks * 2) / totalNodes : 0;
@@ -107,6 +120,7 @@ export default function GraphPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <TopBar />
+      <div className="h-16"></div>
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <MotionDiv
@@ -136,8 +150,8 @@ export default function GraphPage() {
               transition={{ delay: 0.1 }}
             >
               <NotesGraph
-                nodes={graphData.nodes}
-                links={graphData.links}
+                nodes={graphData?.nodes || []}
+                links={graphData?.links || []}
                 onNodeClick={handleNodeClick}
                 className="h-[700px]"
               />
@@ -255,17 +269,17 @@ export default function GraphPage() {
                     </div>
                   )}
                   
-                  {selectedNote.linkedNoteIds.length > 0 && (
+                  {selectedNote.linked_note_ids.length > 0 && (
                     <div>
                       <div className="text-xs text-muted-foreground mb-1">
                         <Link className="w-3 h-3 inline mr-1" />
-                        Linked Notes ({selectedNote.linkedNoteIds.length})
+                        Linked Notes ({selectedNote.linked_note_ids.length})
                       </div>
                     </div>
                   )}
                   
                   <div className="text-xs text-muted-foreground pt-2 border-t border-border/40">
-                    Updated {new Date(selectedNote.updatedAt).toLocaleDateString()}
+                    Updated {new Date(selectedNote.updated_at).toLocaleDateString()}
                   </div>
                 </div>
               </MotionDiv>

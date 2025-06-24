@@ -49,10 +49,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get('id');
-  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   const body = await req.json();
+  const id = body.id;
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   try {
     const updated = await TaskService.update(id, body);
     if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -63,10 +62,10 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get('id');
+  const body = await req.json();
+  const id = body.id;
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   const deleted = await TaskService.delete(id);
   if (!deleted) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json({ success: true });
-} 
+}

@@ -1,1 +1,15 @@
-[]
+[
+  {
+    "title": "test",
+    "content": "testt",
+    "mood": "neutral",
+    "date": "2025-06-21",
+    "tags": [
+      "testtt"
+    ],
+    "linkedNoteIds": [],
+    "id": "7358099b-15ae-4d7f-b0d9-7d28b282d1fe",
+    "createdAt": "2025-06-21T12:57:56.751Z",
+    "updatedAt": "2025-06-21T12:57:56.751Z"
+  }
+]

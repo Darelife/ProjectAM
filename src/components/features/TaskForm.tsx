@@ -12,7 +12,7 @@ import {
   Clock,
   Save
 } from 'lucide-react';
-import { Task } from '@/types/Task';
+import { Task, TaskInsert } from '@/types/Database';
 
 interface TaskFormProps {
   task?: Task | null;
@@ -27,11 +27,10 @@ export function TaskForm({ task, isOpen, onClose, onSave, selectedDate }: TaskFo
     title: '',
     description: '',
     priority: 'medium' as Task['priority'],
-    eisenhowerQuadrant: undefined as Task['eisenhowerQuadrant'],
-    dueDate: '',
-    calendarDate: '',
+    due_date: '',
+    calendar_date: '',
     tags: [] as string[],
-    linkedNoteIds: [] as string[]
+    linked_note_ids: [] as string[]
   });
   const [tagInput, setTagInput] = useState('');
 
@@ -41,11 +40,10 @@ export function TaskForm({ task, isOpen, onClose, onSave, selectedDate }: TaskFo
         title: task.title,
         description: task.description || '',
         priority: task.priority,
-        eisenhowerQuadrant: task.eisenhowerQuadrant,
-        dueDate: task.dueDate || '',
-        calendarDate: task.calendarDate || '',
+        due_date: task.due_date || '',
+        calendar_date: task.calendar_date || '',
         tags: task.tags || [],
-        linkedNoteIds: task.linkedNoteIds || []
+        linked_note_ids: task.linked_note_ids || []
       });
     } else {
       // Reset form for new task
@@ -54,11 +52,10 @@ export function TaskForm({ task, isOpen, onClose, onSave, selectedDate }: TaskFo
         title: '',
         description: '',
         priority: 'medium',
-        eisenhowerQuadrant: undefined,
-        dueDate: defaultDate,
-        calendarDate: defaultDate,
+        due_date: defaultDate,
+        calendar_date: defaultDate,
         tags: [],
-        linkedNoteIds: []
+        linked_note_ids: []
       });
     }
   }, [task, selectedDate, isOpen]);
@@ -71,11 +68,10 @@ export function TaskForm({ task, isOpen, onClose, onSave, selectedDate }: TaskFo
       title: formData.title.trim(),
       description: formData.description.trim(),
       priority: formData.priority,
-      eisenhowerQuadrant: formData.eisenhowerQuadrant,
-      dueDate: formData.dueDate || undefined,
-      calendarDate: formData.calendarDate || undefined,
+      due_date: formData.due_date || null,
+      calendar_date: formData.calendar_date || null,
       tags: formData.tags,
-      linkedNoteIds: formData.linkedNoteIds
+      linked_note_ids: formData.linked_note_ids
     });
   };
 
@@ -154,8 +150,8 @@ export function TaskForm({ task, isOpen, onClose, onSave, selectedDate }: TaskFo
             />
           </div>
 
-          {/* Priority & Quadrant */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Priority */}
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">
                 <Flag className="w-4 h-4 inline mr-2" />
@@ -171,27 +167,6 @@ export function TaskForm({ task, isOpen, onClose, onSave, selectedDate }: TaskFo
                 <option value="high">High Priority</option>
               </select>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                <Target className="w-4 h-4 inline mr-2" />
-                Eisenhower Quadrant
-              </label>
-              <select
-                value={formData.eisenhowerQuadrant || ''}
-                onChange={(e) => setFormData(prev => ({ 
-                  ...prev, 
-                  eisenhowerQuadrant: e.target.value ? e.target.value as Task['eisenhowerQuadrant'] : undefined 
-                }))}
-                className="w-full px-4 py-3 rounded-lg bg-background/50 border border-border/40 focus-ring"
-              >
-                <option value="">No Quadrant</option>
-                <option value="do">Do (Urgent & Important)</option>
-                <option value="schedule">Schedule (Important, Not Urgent)</option>
-                <option value="delegate">Delegate (Urgent, Not Important)</option>
-                <option value="delete">Delete (Neither Urgent nor Important)</option>
-              </select>
-            </div>
           </div>
 
           {/* Dates */}
@@ -203,8 +178,8 @@ export function TaskForm({ task, isOpen, onClose, onSave, selectedDate }: TaskFo
               </label>
               <input
                 type="date"
-                value={formData.dueDate}
-                onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                value={formData.due_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
                 className="w-full px-4 py-3 rounded-lg bg-background/50 border border-border/40 focus-ring"
               />
             </div>
@@ -216,8 +191,8 @@ export function TaskForm({ task, isOpen, onClose, onSave, selectedDate }: TaskFo
               </label>
               <input
                 type="date"
-                value={formData.calendarDate}
-                onChange={(e) => setFormData(prev => ({ ...prev, calendarDate: e.target.value }))}
+                value={formData.calendar_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, calendar_date: e.target.value }))}
                 className="w-full px-4 py-3 rounded-lg bg-background/50 border border-border/40 focus-ring"
               />
             </div>

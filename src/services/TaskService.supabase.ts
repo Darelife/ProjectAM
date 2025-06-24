@@ -109,6 +109,14 @@ export const TaskService = {
     }
   },
 
+  async markComplete(id: string): Promise<Task | null> {
+    return this.update(id, { completed: true })
+  },
+
+  async markIncomplete(id: string): Promise<Task | null> {
+    return this.update(id, { completed: false })
+  },
+
   async searchByTitle(query: string): Promise<Task[]> {
     try {
       const { data, error } = await supabase
@@ -178,24 +186,6 @@ export const TaskService = {
     } catch (error) {
       console.error('Error fetching upcoming tasks:', error)
       return []
-    }
-  },
-
-  async linkToNote(taskId: string, noteId: string): Promise<Task | null> {
-    try {
-      const task = await this.getById(taskId)
-      if (!task) return null
-      
-      const linkedNoteIds = task.linked_note_ids || []
-      if (!linkedNoteIds.includes(noteId)) {
-        linkedNoteIds.push(noteId)
-        return await this.update(taskId, { linked_note_ids: linkedNoteIds })
-      }
-      
-      return task
-    } catch (error) {
-      console.error('Error linking task to note:', error)
-      return null
     }
   }
 }

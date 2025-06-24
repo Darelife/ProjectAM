@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { Task } from '../../types/Task';
+import { Task } from '../../types/Database';
 import { TopBar } from '../../components/layout/TopBar';
 import { MotionDiv } from '../../components/ui/motion';
 import { TaskForm } from '../../components/features/TaskForm';
 import { Plus, Search, Calendar, Target, Edit3, Trash2, CheckCircle2, Circle, Tag } from 'lucide-react';
 import Link from 'next/link';
-import { TaskService } from '@/services';
+import { TaskService } from '@/services/TaskService';
 
 interface TaskCardProps {  
   task: Task;  
@@ -60,16 +60,10 @@ function TaskCard({ task, onEdit, onDelete, onToggle }: TaskCardProps) {
                 {task.priority}              
               </span>                            
               
-              {task.eisenhowerQuadrant && (                
-                <span className="px-2 py-1 rounded-full bg-primary/10 text-primary">                  
-                  {task.eisenhowerQuadrant}                
-                </span>              
-              )}                            
-              
-              {task.dueDate && (                
+              {task.due_date && (                
                 <div className="flex items-center gap-1 text-muted-foreground">                  
                   <Calendar className="w-3 h-3" />                  
-                  {new Date(task.dueDate).toLocaleDateString()}                
+                  {new Date(task.due_date).toLocaleDateString()}                
                 </div>              
               )}                            
               
@@ -178,10 +172,10 @@ export default function TasksPage() {
       if (!matchesSearch) return false;
     }
     
-    // Quadrant filter
-    if (filter.quadrant && task.eisenhowerQuadrant !== filter.quadrant) {
-      return false;
-    }
+    // Quadrant filter - remove this since it's not in our schema
+    // if (filter.quadrant && task.eisenhowerQuadrant !== filter.quadrant) {
+    //   return false;
+    // }
     
     // Tag filter
     if (filter.tag && !task.tags.includes(filter.tag)) {
@@ -190,8 +184,8 @@ export default function TasksPage() {
     
     // Date filter
     if (filter.date) {
-      if (!task.calendarDate && !task.dueDate) return false;
-      const taskDate = task.calendarDate || task.dueDate;
+      if (!task.calendar_date && !task.due_date) return false;
+      const taskDate = task.calendar_date || task.due_date;
       if (taskDate !== filter.date) return false;
     }
     
@@ -304,13 +298,25 @@ export default function TasksPage() {
           )}
         </div>
 
-        {/* Task Form Modal */}
-        <TaskForm
-          task={editing}
-          isOpen={showCreateModal || editing !== null}
-          onClose={handleCloseModal}
-          onSave={handleSaveTask}
-        />
+        {/* Task Form Modal - Temporarily disabled for Supabase migration */}
+        {(showCreateModal || editing !== null) && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="glass-effect rounded-xl p-6 w-full max-w-2xl">
+              <h2 className="text-xl font-bold mb-4">
+                {editing ? 'Edit Task' : 'Create Task'}
+              </h2>
+              <p className="text-muted-foreground mb-4">
+                TaskForm component needs to be updated for Supabase schema.
+              </p>
+              <button
+                onClick={handleCloseModal}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

@@ -10,6 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.50.0",
     "@types/d3": "^7.4.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
@@ -45,51 +46,5 @@
     "tailwindcss": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5"
-  }
-}
-    "appId": "com.projectam.app",
-    "productName": "ProjectAM",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "out/**/*",
-      "electron/**/*",
-      "package.json",
-      {
-        "from": "node_modules",
-        "to": "node_modules",
-        "filter": [
-          "**/*",
-          "!@img/**/*",
-          "!sharp/vendor/**/*"
-        ]
-      }
-    ],
-    "extraFiles": [
-      {
-        "from": "data",
-        "to": "data",
-        "filter": ["**/*"]
-      }
-    ],
-    "mac": {
-      "category": "public.app-category.productivity"
-    },
-    "win": {
-      "target": "nsis"
-    },
-    "linux": {
-      "target": [
-        {
-          "target": "AppImage",
-          "arch": ["x64"]
-        },
-        {
-          "target": "tar.gz",
-          "arch": ["x64"]
-        }
-      ]
-    }
   }
 }

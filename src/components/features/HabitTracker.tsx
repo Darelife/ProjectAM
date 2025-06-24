@@ -4,12 +4,12 @@ import { MotionDiv } from "@/components/ui/motion";
 import { CheckCircle2, Circle, Plus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { HabitService } from "@/services/HabitService";
-import { Habit } from "@/types/Habit";
+import { Habit, HabitWithStreaks, addStreaksToHabit } from "@/types/Habit";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function HabitTracker() {
-  const [habits, setHabits] = useState<Habit[]>([]);
+  const [habits, setHabits] = useState<HabitWithStreaks[]>([]);
   const [newHabit, setNewHabit] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +20,9 @@ export function HabitTracker() {
   const loadHabits = async () => {
     try {
       const habitsData = await HabitService.getAll();
-      setHabits(habitsData);
+      // Add calculated streaks to each habit
+      const habitsWithStreaks = habitsData.map(habit => addStreaksToHabit(habit));
+      setHabits(habitsWithStreaks);
     } catch (error) {
       console.error("Failed to load habits:", error);
     } finally {
@@ -39,7 +41,6 @@ export function HabitTracker() {
           targetFrequency: 7,
           tags: [],
           completions: {},
-          weeklyProgress: Array(7).fill(false),
         });
         await loadHabits();
         setNewHabit("");
@@ -60,7 +61,7 @@ export function HabitTracker() {
       targetDate.setDate(today.getDate() - today.getDay() + dayIndex);
       const dateStr = targetDate.toISOString().split('T')[0];
 
-      if (habit.weeklyProgress[dayIndex]) {
+      if (habit.completions[dateStr]) {
         await HabitService.markIncomplete(habitId, dateStr);
       } else {
         await HabitService.markComplete(habitId, dateStr);
@@ -135,23 +136,32 @@ export function HabitTracker() {
                       )}
                     </div>
                   </td>
-                  {habit.weeklyProgress.map((completed, index) => (
-                    <td key={index} className="p-3 text-center">
-                      <button
-                        onClick={() => toggleHabitDay(habit.id, index)}
-                        className={`p-1 rounded-full transition-colors ${completed
-                            ? "text-teal-500 hover:text-teal-400"
-                            : "text-muted-foreground hover:text-primary"
-                          }`}
-                      >
-                        {completed ? (
-                          <CheckCircle2 className="w-5 h-5" />
-                        ) : (
-                          <Circle className="w-5 h-5" />
-                        )}
-                      </button>
-                    </td>
-                  ))}
+                  {DAYS.map((day, index) => {
+                    // Calculate the date for this day of the week
+                    const today = new Date();
+                    const targetDate = new Date(today);
+                    targetDate.setDate(today.getDate() - today.getDay() + index);
+                    const dateStr = targetDate.toISOString().split('T')[0];
+                    const completed = Boolean(habit.completions[dateStr]);
+                    
+                    return (
+                      <td key={index} className="p-3 text-center">
+                        <button
+                          onClick={() => toggleHabitDay(habit.id, index)}
+                          className={`p-1 rounded-full transition-colors ${completed
+                              ? "text-teal-500 hover:text-teal-400"
+                              : "text-muted-foreground hover:text-primary"
+                            }`}
+                        >
+                          {completed ? (
+                            <CheckCircle2 className="w-5 h-5" />
+                          ) : (
+                            <Circle className="w-5 h-5" />
+                          )}
+                        </button>
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
