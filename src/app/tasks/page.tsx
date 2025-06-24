@@ -1,323 +1,260 @@
-"use client";
-import { useEffect, useState } from 'react';
-import { Task } from '../../types/Database';
-import { TopBar } from '../../components/layout/TopBar';
-import { MotionDiv } from '../../components/ui/motion';
-import { TaskForm } from '../../components/features/TaskForm';
-import { Plus, Search, Calendar, Target, Edit3, Trash2, CheckCircle2, Circle, Tag } from 'lucide-react';
-import Link from 'next/link';
-import { TaskService } from '@/services/TaskService';
+'use client';
 
-interface TaskCardProps {  
-  task: Task;  
-  onEdit: (task: Task) => void;  
-  onDelete: (id: string) => void;  
-  onToggle: (id: string) => void;
-}
+import { useState, useEffect } from 'react';
+import { Task } from '@/types/Database';
+import { TaskService } from '@/services';
+import { TaskForm } from '@/components/features/TaskForm';
 
-function TaskCard({ task, onEdit, onDelete, onToggle }: TaskCardProps) {  
-  const priorityColors = {    
-    low: 'border-green-500/30 bg-green-500/5',    
-    medium: 'border-yellow-500/30 bg-yellow-500/5',    
-    high: 'border-red-500/30 bg-red-500/5'  
-  };  
-  const priorityTextColors = {    
-    low: 'text-green-500',    
-    medium: 'text-yellow-500',    
-    high: 'text-red-500'  
-  };  
-  
-  return (    
-    <MotionDiv      
-      initial={{ opacity: 0, y: 20 }}      
-      animate={{ opacity: 1, y: 0 }}      
-      className={`glass-enhanced p-6 rounded-xl border-l-4 ${priorityColors[task.priority]} card-hover`}    
-    >      
-      <div className="flex items-start justify-between">        
-        <div className="flex items-start space-x-4 flex-1">          
-          <button            
-            onClick={() => onToggle(task.id)}            
-            className="mt-1 transition-colors hover:scale-110"          
-          >            
-            {task.completed ? (              
-              <CheckCircle2 className="w-5 h-5 text-green-500" />            
-            ) : (              
-              <Circle className="w-5 h-5 text-muted-foreground hover:text-primary" />            
-            )}          
-          </button>                    
-          
-          <div className="flex-1">            
-            <h3 className={`text-lg font-semibold ${task.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>              
-              {task.title}            
-            </h3>            
-            {task.description && (
-              <p className="text-muted-foreground text-sm mt-1">
-                {task.description}
-              </p>
-            )}
-            <div className="flex items-center gap-4 mt-3 text-xs">              
-              <span className={`px-2 py-1 rounded-full ${priorityTextColors[task.priority]} bg-current/10`}>                
-                {task.priority}              
-              </span>                            
-              
-              {task.due_date && (                
-                <div className="flex items-center gap-1 text-muted-foreground">                  
-                  <Calendar className="w-3 h-3" />                  
-                  {new Date(task.due_date).toLocaleDateString()}                
-                </div>              
-              )}                            
-              
-              {task.tags.length > 0 && (                
-                <div className="flex items-center gap-1">                  
-                  <Tag className="w-3 h-3 text-muted-foreground" />                  
-                  <span className="text-muted-foreground">                    
-                    {task.tags.slice(0, 2).join(', ')}                    
-                    {task.tags.length > 2 && ` +${task.tags.length - 2}`}                  
-                  </span>                
-                </div>              
-              )}           
-            </div>          
-          </div>        
-        </div>               
-        
-        <div className="flex items-center gap-2">          
-          <button            
-            onClick={() => onEdit(task)}            
-            className="p-2 hover:bg-background/50 rounded-lg transition-colors"          
-          >            
-            <Edit3 className="w-4 h-4 text-muted-foreground hover:text-primary" />          
-          </button>          
-          <button            
-            onClick={() => onDelete(task.id)}            
-            className="p-2 hover:bg-background/50 rounded-lg transition-colors"          
-          >            
-            <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />          
-          </button>        
-        </div>      
-      </div>    
-    </MotionDiv>  
-  );
-}
+export default function TasksPage() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
-export default function TasksPage() {  
-  const [tasks, setTasks] = useState<Task[]>([]);  
-  const [filter, setFilter] = useState<{ tag?: string; quadrant?: string; date?: string; search?: string }>({});  
-  const [editing, setEditing] = useState<Task | null>(null);  
-  const [showCreateModal, setShowCreateModal] = useState(false);  
-  
-  useEffect(() => {    
-    fetchTasks();  
-  }, []); // Remove filter dependency since we're doing client-side filtering now  
-  
-  const fetchTasks = async () => {    
-    try {      
-      const data = await TaskService.getAll();
-      setTasks(data);    
-    } catch (error) {      
-      console.error('Failed to fetch tasks:', error);    
-    }  
-  };  
-  
-  const handleToggleComplete = async (id: string) => {    
-    const task = tasks.find(t => t.id === id);    
-    if (!task) return;        
-    
-    try {      
-      await TaskService.update(id, { completed: !task.completed });      
-      fetchTasks();    
-    } catch (error) {      
-      console.error('Failed to toggle task:', error);    
-    }  
-  };  
-  
-  const handleDelete = async (id: string) => {    
-    try {      
-      await TaskService.delete(id);      
-      fetchTasks();    
-    } catch (error) {      
-      console.error('Failed to delete task:', error);    
-    }  
-  };
+  useEffect(() => {
+    fetchTasks();
+  }, []);
 
-  const handleSaveTask = async (taskData: Partial<Task>) => {
+  const fetchTasks = async () => {
     try {
-      if (editing) {
-        // Update existing task
-        await TaskService.update(editing.id, taskData);
-      } else {
-        // Create new task
-        await TaskService.create(taskData as Omit<Task, 'id' | 'createdAt' | 'updatedAt'>);
-      }
-      
-      fetchTasks();
-      setShowCreateModal(false);
-      setEditing(null);
+      const fetchedTasks = await TaskService.getAll();
+      setTasks(fetchedTasks);
     } catch (error) {
-      console.error('Failed to save task:', error);
+      console.error('Error fetching tasks:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCloseModal = () => {
-    setShowCreateModal(false);
-    setEditing(null);
-  };  
-  
-  const filteredTasks = tasks.filter(task => {    
-    // Search filter
-    if (filter.search) {      
-      const searchLower = filter.search.toLowerCase();      
-      const matchesSearch = task.title.toLowerCase().includes(searchLower) ||             
-                           task.description?.toLowerCase().includes(searchLower) ||             
-                           task.tags.some(tag => tag.toLowerCase().includes(searchLower));
-      if (!matchesSearch) return false;
+  const handleTaskSave = async (taskData: Partial<Task>) => {
+    try {
+      if (editingTask) {
+        const updatedTask = await TaskService.update(editingTask.id, taskData);
+        if (updatedTask) {
+          setTasks(tasks.map(task => 
+            task.id === editingTask.id ? updatedTask : task
+          ));
+        }
+      } else {
+        const newTask = await TaskService.create(taskData as any);
+        setTasks([newTask, ...tasks]);
+      }
+      setIsFormOpen(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('Error saving task:', error);
     }
-    
-    // Quadrant filter - remove this since it's not in our schema
-    // if (filter.quadrant && task.eisenhowerQuadrant !== filter.quadrant) {
-    //   return false;
-    // }
-    
-    // Tag filter
-    if (filter.tag && !task.tags.includes(filter.tag)) {
-      return false;
+  };
+
+  const handleTaskUpdate = async (id: string, updates: Partial<Task>) => {
+    try {
+      const updatedTask = await TaskService.update(id, updates);
+      if (updatedTask) {
+        setTasks(tasks.map(task => 
+          task.id === id ? updatedTask : task
+        ));
+      }
+    } catch (error) {
+      console.error('Error updating task:', error);
     }
-    
-    // Date filter
-    if (filter.date) {
-      if (!task.calendar_date && !task.due_date) return false;
-      const taskDate = task.calendar_date || task.due_date;
-      if (taskDate !== filter.date) return false;
+  };
+
+  const handleTaskDelete = async (id: string) => {
+    try {
+      await TaskService.delete(id);
+      setTasks(tasks.filter(task => task.id !== id));
+    } catch (error) {
+      console.error('Error deleting task:', error);
     }
-    
+  };
+
+  const filteredTasks = tasks.filter(task => {
+    if (filter === 'pending') return !task.completed;
+    if (filter === 'completed') return task.completed;
     return true;
   });
 
-  return (
-    <main className="min-h-screen bg-background text-foreground">
-      <TopBar />
-      
-      <div className="container mx-auto px-4 pt-24 pb-8">
-        <MotionDiv
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity">
-              <h1 className="text-4xl font-bold gradient-text">Tasks</h1>
-            </Link>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="button-primary px-6 py-3 rounded-xl flex items-center gap-2 smooth-hover"
-            >
-              <Plus className="w-5 h-5" />
-              New Task
-            </button>
+  const priorityOrder = { high: 3, medium: 2, low: 1 };
+  const sortedTasks = filteredTasks.sort((a, b) => {
+    if (a.completed !== b.completed) {
+      return a.completed ? 1 : -1;
+    }
+    return priorityOrder[b.priority] - priorityOrder[a.priority];
+  });
+
+  if (loading) {
+    return (
+      <div className="p-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-notion-card rounded w-1/4 mb-6"></div>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-16 bg-notion-card rounded"></div>
+            ))}
           </div>
-
-          {/* Search and Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search tasks..."
-                value={filter.search || ''}
-                onChange={(e) => setFilter(prev => ({ ...prev, search: e.target.value }))}
-                className="w-full pl-9 pr-4 py-2 rounded-lg bg-background/50 border border-border/40 focus-ring"
-              />
-            </div>
-            
-            <select
-              value={filter.quadrant || ''}
-              onChange={(e) => setFilter(prev => ({ ...prev, quadrant: e.target.value || undefined }))}
-              className="px-4 py-2 rounded-lg bg-background/50 border border-border/40 focus-ring"
-            >
-              <option value="">All Quadrants</option>
-              <option value="do">Do</option>
-              <option value="schedule">Schedule</option>
-              <option value="delegate">Delegate</option>
-              <option value="delete">Delete</option>
-            </select>
-
-            <select
-              value={filter.tag || ''}
-              onChange={(e) => setFilter(prev => ({ ...prev, tag: e.target.value || undefined }))}
-              className="px-4 py-2 rounded-lg bg-background/50 border border-border/40 focus-ring"
-            >
-              <option value="">All Tags</option>
-              {Array.from(new Set(tasks.flatMap(t => t.tags))).map(tag => (
-                <option key={tag} value={tag}>{tag}</option>
-              ))}
-            </select>
-
-            <input
-              type="date"
-              value={filter.date || ''}
-              onChange={(e) => setFilter(prev => ({ ...prev, date: e.target.value || undefined }))}
-              className="px-4 py-2 rounded-lg bg-background/50 border border-border/40 focus-ring"
-            />
-          </div>
-        </MotionDiv>
-
-        {/* Task List */}
-        <div className="space-y-4">
-          {filteredTasks.length === 0 ? (
-            <MotionDiv
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-12"
-            >
-              <Target className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No tasks found</h3>
-              <p className="text-muted-foreground mb-4">Get started by creating your first task!</p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="button-primary px-6 py-3 rounded-xl flex items-center gap-2 mx-auto"
-              >
-                <Plus className="w-5 h-5" />
-                Create Task
-              </button>
-            </MotionDiv>
-          ) : (
-            filteredTasks.map((task, index) => (
-              <MotionDiv
-                key={task.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <TaskCard
-                  task={task}
-                  onEdit={setEditing}
-                  onDelete={handleDelete}
-                  onToggle={handleToggleComplete}
-                />
-              </MotionDiv>
-            ))
-          )}
         </div>
+      </div>
+    );
+  }
 
-        {/* Task Form Modal - Temporarily disabled for Supabase migration */}
-        {(showCreateModal || editing !== null) && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="glass-effect rounded-xl p-6 w-full max-w-2xl">
-              <h2 className="text-xl font-bold mb-4">
-                {editing ? 'Edit Task' : 'Create Task'}
-              </h2>
-              <p className="text-muted-foreground mb-4">
-                TaskForm component needs to be updated for Supabase schema.
-              </p>
-              <button
-                onClick={handleCloseModal}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg"
-              >
-                Close
-              </button>
+  return (
+    <div className="p-8 max-w-4xl mx-auto">
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-notion-text mb-2">Tasks</h1>
+            <p className="text-notion-text-secondary">
+              Manage and track your tasks efficiently
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setEditingTask(null);
+              setIsFormOpen(true);
+            }}
+            className="px-4 py-2 bg-notion-accent text-white rounded-lg hover:bg-opacity-80 transition-colors"
+          >
+            New Task
+          </button>
+        </div>
+      </div>
+
+      {/* Task Form Modal */}
+      <TaskForm
+        task={editingTask}
+        isOpen={isFormOpen}
+        onClose={() => {
+          setIsFormOpen(false);
+          setEditingTask(null);
+        }}
+        onSave={handleTaskSave}
+      />
+
+      {/* Filter Tabs */}
+      <div className="flex gap-1 mb-6">
+        {(['all', 'pending', 'completed'] as const).map((filterOption) => (
+          <button
+            key={filterOption}
+            onClick={() => setFilter(filterOption)}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              filter === filterOption
+                ? 'bg-notion-accent text-white'
+                : 'text-notion-text-secondary hover:text-notion-text hover:bg-notion-card'
+            }`}
+          >
+            {filterOption.charAt(0).toUpperCase() + filterOption.slice(1)}
+            {filterOption === 'all' && ` (${tasks.length})`}
+            {filterOption === 'pending' && ` (${tasks.filter(t => !t.completed).length})`}
+            {filterOption === 'completed' && ` (${tasks.filter(t => t.completed).length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Tasks List */}
+      <div className="space-y-3">
+        {sortedTasks.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-notion-text-secondary mb-4">
+              {filter === 'all' && 'No tasks found. Create your first task above!'}
+              {filter === 'pending' && 'No pending tasks. Great job!'}
+              {filter === 'completed' && 'No completed tasks yet.'}
             </div>
           </div>
+        ) : (
+          sortedTasks.map((task) => (
+            <div
+              key={task.id}
+              className={`bg-notion-card rounded-lg p-4 border border-notion-border transition-all hover:border-notion-border-hover ${
+                task.completed ? 'opacity-60' : ''
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                {/* Checkbox */}
+                <button
+                  onClick={() => handleTaskUpdate(task.id, { completed: !task.completed })}
+                  className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                    task.completed
+                      ? 'bg-notion-accent border-notion-accent'
+                      : 'border-notion-border hover:border-notion-accent'
+                  }`}
+                >
+                  {task.completed && (
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+
+                {/* Task Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className={`font-medium ${
+                      task.completed 
+                        ? 'text-notion-text-secondary line-through' 
+                        : 'text-notion-text'
+                    }`}>
+                      {task.title}
+                    </h3>
+                    
+                    {/* Priority Badge */}
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${
+                      task.priority === 'high' 
+                        ? 'bg-red-900/20 text-red-400 border border-red-800/30'
+                        : task.priority === 'medium'
+                        ? 'bg-yellow-900/20 text-yellow-400 border border-yellow-800/30'
+                        : 'bg-green-900/20 text-green-400 border border-green-800/30'
+                    }`}>
+                      {task.priority}
+                    </span>
+                  </div>
+
+                  {task.description && (
+                    <p className={`text-sm mb-2 ${
+                      task.completed 
+                        ? 'text-notion-text-secondary line-through' 
+                        : 'text-notion-text-secondary'
+                    }`}>
+                      {task.description}
+                    </p>
+                  )}
+
+                  {task.due_date && (
+                    <div className="text-xs text-notion-text-secondary">
+                      Due: {new Date(task.due_date).toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setEditingTask(task);
+                      setIsFormOpen(true);
+                    }}
+                    className="p-1 text-notion-text-secondary hover:text-notion-accent transition-colors"
+                    title="Edit task"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handleTaskDelete(task.id)}
+                    className="p-1 text-notion-text-secondary hover:text-red-400 transition-colors"
+                    title="Delete task"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
         )}
       </div>
-    </main>
+    </div>
   );
 }

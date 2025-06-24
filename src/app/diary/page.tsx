@@ -151,11 +151,35 @@ export default function DiaryPage() {
   };
 
   const handleSaveEntry = async (entryData: Partial<DiaryEntry>) => {
+    const transformApiEntry = (apiEntry: any): DiaryEntry => {
+      let mood: DiaryEntry['mood'] = 'neutral';
+      switch (apiEntry.mood) {
+        case 'great': mood = 'excited'; break;
+        case 'good': mood = 'happy'; break;
+        case 'bad':
+        case 'terrible': mood = 'sad'; break;
+        case 'neutral': mood = 'neutral'; break;
+      }
+
+      return {
+        id: apiEntry.id,
+        title: apiEntry.title,
+        content: apiEntry.content,
+        date: apiEntry.date,
+        tags: apiEntry.tags,
+        createdAt: apiEntry.created_at,
+        updatedAt: apiEntry.updated_at,
+        linkedNoteIds: apiEntry.linked_note_ids,
+        mood,
+      };
+    };
+
     try {
       if (editing) {
         // Update existing entry
-        const updatedEntry = await DiaryService.update(editing.id, entryData);
-        if (updatedEntry) {
+        const updatedFromApi = await DiaryService.update(editing.id, entryData);
+        if (updatedFromApi) {
+          const updatedEntry = transformApiEntry(updatedFromApi);
           setEntries(prev => prev.map(entry => 
             entry.id === editing.id ? updatedEntry : entry
           ));
@@ -163,8 +187,11 @@ export default function DiaryPage() {
         }
       } else {
         // Create new entry
-        const newEntry = await DiaryService.create(entryData as Omit<DiaryEntry, 'id' | 'createdAt' | 'updatedAt'>);
-        setEntries(prev => [newEntry, ...prev]);
+        const newFromApi = await DiaryService.create(entryData as Omit<DiaryEntry, 'id' | 'createdAt' | 'updatedAt'>);
+        if (newFromApi) {
+          const newEntry = transformApiEntry(newFromApi);
+          setEntries(prev => [newEntry, ...prev]);
+        }
       }
     } catch (error) {
       console.error('Failed to save entry:', error);

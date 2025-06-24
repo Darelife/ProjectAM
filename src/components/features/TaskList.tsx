@@ -1,11 +1,12 @@
 "use client";
 
-import { MotionDiv } from "@/components/ui/motion";
-import { CheckCircle2, Circle, Plus, Trash2, Calendar, Settings } from "lucide-react";
+import { CheckCircle2, Circle, Plus, Trash2, Calendar, ArrowRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { TaskService } from "@/services";
-import { Task } from "@/types/Task";
+import { Database } from "@/types/Database";
 import Link from "next/link";
+
+type Task = Database['public']['Tables']['tasks']['Row'];
 
 export function TaskList() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -35,11 +36,11 @@ export function TaskList() {
         await TaskService.create({
           title: newTask.trim(),
           description: "",
-          dueDate: today,
+          due_date: today,
           priority: "medium",
-          linkedNoteIds: [],
+          linked_note_ids: [],
           tags: [],
-          calendarDate: today,
+          calendar_date: today,
           completed: false,
         });
         await loadTasks();
@@ -68,109 +69,138 @@ export function TaskList() {
     }
   };
 
+  const completedTasks = tasks.filter(task => task.completed);
+  const pendingTasks = tasks.filter(task => !task.completed);
+
   return (
-    <MotionDiv
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="glass-effect rounded-xl p-6 shadow-xl"
-    >
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold">Today's Tasks</h3>
-        <Link 
-          href="/tasks"
-          className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-background/50"
-        >
-          <Settings className="w-4 h-4" />
-          Manage All
-        </Link>
-      </div>
-      
-      <div className="flex gap-2 mb-6">
+    <div className="space-y-6">
+      {/* Add new task */}
+      <div className="flex gap-3">
         <input
           type="text"
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
           onKeyPress={(e) => e.key === "Enter" && addTask()}
           placeholder="Add a new task..."
-          className="input-focus flex-1 px-4 py-3 rounded-lg bg-background/50 border border-border/40 text-foreground placeholder:text-muted-foreground"
+          className="input-field flex-1"
         />
         <button
           onClick={addTask}
-          className="button-primary p-3 rounded-lg hover:scale-105 transition-transform"
+          disabled={!newTask.trim()}
+          className="btn-clean px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="space-y-3">
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
-          </div>
-        ) : tasks.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No tasks for today</p>
-            <p className="text-sm">Add your first task above</p>
-          </div>
-        ) : (
-          tasks.map((task) => (
-            <MotionDiv
-              key={task.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="group gradient-border p-4 rounded-xl bg-background/50 hover:bg-background/80 transition-all duration-300"
-            >
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => toggleTask(task.id, task.completed)}
-                  className={`p-1 rounded-full transition-colors ${task.completed
-                      ? "text-teal-500 hover:text-teal-400"
-                      : "text-muted-foreground hover:text-primary"
-                    }`}
-                >
-                  {task.completed ? (
-                    <CheckCircle2 className="w-5 h-5" />
-                  ) : (
-                    <Circle className="w-5 h-5" />
-                  )}
-                </button>
-                <div className="flex-1">
-                  <span
-                    className={`text-lg ${task.completed
-                        ? "line-through text-muted-foreground"
-                        : "text-foreground"
-                      }`}
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="text-muted-foreground">Loading tasks...</div>
+        </div>
+      ) : tasks.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+          <p className="mb-2">No tasks for today</p>
+          <p className="text-sm">Add your first task above</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Pending Tasks */}
+          {pendingTasks.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-3">
+                Pending ({pendingTasks.length})
+              </h4>
+              <div className="space-y-2">
+                {pendingTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="group flex items-center gap-3 p-3 rounded-lg hover-subtle"
                   >
-                    {task.title}
-                  </span>
-                  {task.description && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {task.description}
-                    </p>
-                  )}
-                  {task.priority && (
-                    <span className={`inline-block px-2 py-1 text-xs rounded-full mt-2 ${
-                      task.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-                      task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                      'bg-green-500/20 text-green-400'
-                    }`}>
-                      {task.priority}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => deleteTask(task.id)}
-                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all duration-300"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                    <button
+                      onClick={() => toggleTask(task.id, task.completed)}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Circle className="w-4 h-4" />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-foreground truncate">{task.title}</div>
+                      {task.description && (
+                        <div className="text-sm text-muted-foreground truncate">
+                          {task.description}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {task.priority && (
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          task.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                          task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                          'bg-green-500/20 text-green-400'
+                        }`}>
+                          {task.priority}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => deleteTask(task.id)}
+                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </MotionDiv>
-          ))
-        )}
-      </div>
-    </MotionDiv>
+            </div>
+          )}
+
+          {/* Completed Tasks */}
+          {completedTasks.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-3">
+                Completed ({completedTasks.length})
+              </h4>
+              <div className="space-y-2">
+                {completedTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="group flex items-center gap-3 p-3 rounded-lg hover-subtle opacity-75"
+                  >
+                    <button
+                      onClick={() => toggleTask(task.id, task.completed)}
+                      className="text-green-500 hover:text-green-400 transition-colors"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-muted-foreground line-through truncate">
+                        {task.title}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* View all tasks link */}
+          <div className="pt-4 border-t border-border">
+            <Link 
+              href="/tasks"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              View all tasks
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
   );
 } 
